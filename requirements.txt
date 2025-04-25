@@ -11,3 +11,4 @@ pdfplumber
 pandas
 python-docx
 python-dotenv
+spacy

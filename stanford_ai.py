@@ -19,7 +19,10 @@ client = OpenAI(api_key=key_manager.get_openai_key())
 # ==== SETUP HEADLESS CHROME ====
 options = Options()
 options.add_argument("--headless")
-options.add_argument("--disable-gpu")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.binary_location = "/usr/bin/chromium"
+
 driver = webdriver.Chrome(options=options)
 
 # ==== STEP 1: GET BLOG POST LINKS ====

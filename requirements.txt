@@ -12,10 +12,10 @@ pdfplumber
 pandas
 python-dotenv
 
-# spaCy-Kram – funktionierende Kombination
-numpy==1.24.4
+# spaCy-Stack (funktioniert mit Python 3.10)
 spacy==3.6.1
 thinc==8.1.10
+numpy==1.24.4
 
-# spaCy model hinzufügen
+# spaCy English model direkt mit installieren
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl

@@ -8,7 +8,10 @@ import locale
 from datetime import datetime, timedelta
 import re
 
-locale.setlocale(locale.LC_TIME, 'en_US.UTF-8') # Setzt Zeit auf lokale Zeit, generell meist US Zeit 
+try:
+    locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
+except locale.Error:
+    locale.setlocale(locale.LC_TIME, '') 
 
 # URL zum TechCrunch AI Bereich
 TECHCRUNCH_AI_URL = "https://techcrunch.com/category/artificial-intelligence/" # Mehrere Links gleichzeitig

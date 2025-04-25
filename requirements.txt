@@ -1,0 +1,13 @@
+streamlit
+openai
+arxiv
+requests
+beautifulsoup4
+lxml
+feedparser
+selenium
+PyPDF2
+pdfplumber
+pandas
+python-docx
+python-dotenv

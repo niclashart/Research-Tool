@@ -1,0 +1,241 @@
+{% extends "layout.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block head_additional %}
+<style>
+    .hero-gradient {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 50%, #0ea5e9 100%);
+    }
+    
+    .feature-card {
+        transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .feature-icon {
+        transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover .feature-icon {
+        transform: scale(1.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-gradient text-white">
+    <div class="container mx-auto px-4 py-20">
+        <div class="flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2 mb-10 md:mb-0">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+                    AI Research & News Summarizer
+                </h1>
+                <p class="text-xl mb-8 text-blue-100">
+                    Stay up-to-date with the latest AI research papers and news from around the web, all in one place
+                </p>
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="/dashboard" class="bg-white text-blue-700 hover:bg-blue-50 px-6 py-3 rounded-lg font-semibold shadow-lg transform transition hover:scale-105">
+                        <i class="fas fa-chart-line mr-2"></i> Go to Dashboard
+                    </a>
+                    <a href="/sources" class="bg-blue-800 text-white hover:bg-blue-900 px-6 py-3 rounded-lg font-semibold shadow-lg transform transition hover:scale-105">
+                        <i class="fas fa-newspaper mr-2"></i> Browse Sources
+                    </a>
+                </div>
+            </div>
+            <div class="md:w-1/2">
+                <div class="glass-card rounded-lg p-6">
+                    <img src="https://images.unsplash.com/photo-1677442136019-21780ecad995?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="AI Research" class="rounded-lg shadow-xl" />
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="bg-white py-20">
+    <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-12">Powerful Features</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="feature-card bg-gray-50 rounded-xl p-6 shadow-md hover-card">
+                <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 mx-auto">
+                    <i class="fas fa-robot text-blue-600 text-2xl feature-icon"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-center mb-3">AI-Powered Summaries</h3>
+                <p class="text-gray-600 text-center">
+                    Get concise summaries of complex research papers and news articles using advanced AI
+                </p>
+            </div>
+            
+            <!-- Feature 2 -->
+            <div class="feature-card bg-gray-50 rounded-xl p-6 shadow-md hover-card">
+                <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 mx-auto">
+                    <i class="fas fa-database text-blue-600 text-2xl feature-icon"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-center mb-3">Multiple Sources</h3>
+                <p class="text-gray-600 text-center">
+                    Aggregate content from ArXiv, TechCrunch, VentureBeat, Stanford AI, and more
+                </p>
+            </div>
+            
+            <!-- Feature 3 -->
+            <div class="feature-card bg-gray-50 rounded-xl p-6 shadow-md hover-card">
+                <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 mx-auto">
+                    <i class="fas fa-comments text-blue-600 text-2xl feature-icon"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-center mb-3">AI Research Assistant</h3>
+                <p class="text-gray-600 text-center">
+                    Chat with our AI assistant to analyze and discuss the latest research findings
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="bg-gray-100 py-20">
+    <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-12">How It Works</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <!-- Step 1 -->
+            <div class="text-center">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mb-4 mx-auto shadow-md">
+                    <span class="text-2xl font-bold text-blue-600">1</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-3">Select Sources</h3>
+                <p class="text-gray-600">
+                    Choose which research and news sources you want to fetch data from
+                </p>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="text-center">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mb-4 mx-auto shadow-md">
+                    <span class="text-2xl font-bold text-blue-600">2</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-3">Process Content</h3>
+                <p class="text-gray-600">
+                    Our AI analyzes and summarizes the articles automatically
+                </p>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="text-center">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mb-4 mx-auto shadow-md">
+                    <span class="text-2xl font-bold text-blue-600">3</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-3">Explore Results</h3>
+                <p class="text-gray-600">
+                    Browse through summaries and full articles at your convenience
+                </p>
+            </div>
+            
+            <!-- Step 4 -->
+            <div class="text-center">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mb-4 mx-auto shadow-md">
+                    <span class="text-2xl font-bold text-blue-600">4</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-3">Chat & Export</h3>
+                <p class="text-gray-600">
+                    Ask questions about content and export summaries for reference
+                </p>
+            </div>
+        </div>
+        
+        <div class="mt-16 text-center">
+            <a href="/sources" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg transition transform hover:scale-105">
+                Get Started Now <i class="fas fa-arrow-right ml-2"></i>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Sources Preview -->
+<section class="bg-white py-20">
+    <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-12">Our Sources</h2>
+        
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 justify-items-center">
+            <!-- ArXiv -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-book text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">ArXiv</p>
+            </div>
+            
+            <!-- TechCrunch -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-newspaper text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">TechCrunch</p>
+            </div>
+            
+            <!-- VentureBeat -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-chart-line text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">VentureBeat</p>
+            </div>
+            
+            <!-- Stanford -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-university text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">Stanford AI</p>
+            </div>
+            
+            <!-- The Verge -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-globe text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">The Verge</p>
+            </div>
+            
+            <!-- The Hacker News -->
+            <div class="text-center">
+                <div class="bg-gray-100 rounded-lg p-4 w-24 h-24 flex items-center justify-center mb-3 mx-auto">
+                    <i class="fas fa-shield-alt text-3xl text-gray-700"></i>
+                </div>
+                <p class="font-medium">Hacker News</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add any specific home page scripts here
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add scroll reveal animation for features
+        const elements = document.querySelectorAll('.feature-card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+        
+        elements.forEach(element => {
+            observer.observe(element);
+        });
+    });
+</script>
+{% endblock %}

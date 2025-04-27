@@ -1,0 +1,574 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Research Chat{% endblock %}
+
+{% block head_additional %}
+<style>
+    .chat-message-user {
+        background-color: #E9F5FE;
+        border-radius: 18px 18px 0 18px;
+    }
+    
+    .chat-message-ai {
+        background-color: #F0F0F0;
+        border-radius: 18px 18px 18px 0;
+    }
+    
+    .chat-container {
+        height: calc(100vh - 240px);
+        min-height: 500px;
+    }
+    
+    .typing-indicator span {
+        animation: blink 1.4s infinite both;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes blink {
+        0% { opacity: 0.1; }
+        20% { opacity: 1; }
+        100% { opacity: 0.1; }
+    }
+    
+    .message-content a {
+        color: #3B82F6;
+        text-decoration: underline;
+    }
+    
+    .message-content pre {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        border-radius: 6px;
+        padding: 12px;
+        overflow-x: auto;
+        margin: 8px 0;
+    }
+    
+    .message-content p {
+        margin-bottom: 0.75rem;
+    }
+    
+    .message-content ul, .message-content ol {
+        margin-left: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .message-content ul {
+        list-style-type: disc;
+    }
+    
+    .message-content ol {
+        list-style-type: decimal;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-comments text-blue-600 mr-2"></i> AI Research Chat
+            </h1>
+            <div>
+                <button id="clear-chat" class="text-gray-600 hover:text-red-600 px-3 py-1 rounded-md text-sm">
+                    <i class="fas fa-trash-alt mr-1"></i> Clear Chat
+                </button>
+                <button id="export-chat" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm ml-2">
+                    <i class="fas fa-file-export mr-1"></i> Export
+                </button>
+            </div>
+        </div>
+        
+        <!-- API Key Warning -->
+        {% if not preferences.api_key_set %}
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        OpenAI API key is not configured. Please add your API key in the 
+                        <a href="{{ url_for('settings') }}" class="font-medium underline text-yellow-700 hover:text-yellow-600">
+                            Settings page
+                        </a> or in the .env file to enable the chat feature.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="grid grid-cols-1 lg:grid-cols-4">
+                <!-- Sidebar -->
+                <div class="p-4 border-r border-gray-200 lg:col-span-1">
+                    <div class="mb-4">
+                        <h2 class="text-lg font-medium mb-2 flex items-center">
+                            <i class="fas fa-history text-gray-600 mr-2"></i> Chat History
+                        </h2>
+                        <div class="relative">
+                            <input type="text" placeholder="Search conversations..." 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500">
+                            <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 max-h-96 overflow-y-auto" id="chat-history-list">
+                        <button class="w-full text-left p-3 rounded-md bg-blue-50 hover:bg-blue-100 transition-colors flex justify-between">
+                            <div>
+                                <div class="font-medium text-blue-600">Current Research</div>
+                                <div class="text-xs text-gray-500">Today, {{ now('%I:%M %p') }}</div>
+                            </div>
+                            <div class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </div>
+                        </button>
+                        
+                        <!-- Example chat history items - these would be generated dynamically -->
+                        <button class="w-full text-left p-3 rounded-md hover:bg-gray-50 transition-colors flex justify-between">
+                            <div>
+                                <div class="font-medium">LLM Advancements</div>
+                                <div class="text-xs text-gray-500">Yesterday</div>
+                            </div>
+                            <div class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    <button class="mt-4 w-full flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors" id="new-chat-btn">
+                        <i class="fas fa-plus mr-2"></i> New Chat
+                    </button>
+                    
+                    <div class="mt-6 pt-4 border-t border-gray-200">
+                        <h3 class="text-lg font-medium mb-2">Settings</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="model" class="block text-sm font-medium text-gray-700">Model</label>
+                                <select id="model" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="gpt-3.5-turbo" selected>GPT-3.5 Turbo</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Knowledge Access</label>
+                                <div class="mt-2 space-y-2">
+                                    <div class="flex items-center">
+                                        <input id="all-sources" name="knowledge" type="radio" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                        <label for="all-sources" class="ml-2 block text-sm text-gray-700">All Sources</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="custom-sources" name="knowledge" type="radio" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                        <label for="custom-sources" class="ml-2 block text-sm text-gray-700">Custom Selection</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Date Range</label>
+                                <div class="mt-1 grid grid-cols-2 gap-2">
+                                    <input type="date" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" id="date-from">
+                                    <input type="date" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" id="date-to">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Area -->
+                <div class="lg:col-span-3 flex flex-col">
+                    <!-- Messages Container -->
+                    <div id="chat-messages" class="flex-grow p-6 overflow-y-auto chat-container">
+                        <!-- AI Welcome Message -->
+                        <div class="flex mb-6">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white flex-shrink-0 mr-4">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="chat-message-ai p-4 max-w-3xl">
+                                <div class="message-content prose prose-sm">
+                                    <p>Hello! I'm your AI research assistant. I can help you analyze research papers, find connections between concepts, summarize articles, and answer questions about the content in your research database.</p>
+                                    <p>You can ask me things like:</p>
+                                    <ul>
+                                        <li>Summarize the latest papers on generative AI</li>
+                                        <li>What are the key trends in LLM research this month?</li>
+                                        <li>Compare approaches in these two papers</li>
+                                        <li>What did the Stanford AI Lab publish recently?</li>
+                                    </ul>
+                                    <p>How can I help with your research today?</p>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-2">{{ now('%I:%M %p') }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Dynamic Chat Messages Will Be Added Here -->
+                        {% for message in chat_history %}
+                        {% if message.role == 'user' %}
+                        <div class="flex mb-6 justify-end">
+                            <div class="chat-message-user p-4 max-w-3xl">
+                                <div class="message-content prose prose-sm">
+                                    <p>{{ message.content }}</p>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-2">{{ message.timestamp|default(now('%I:%M %p')) }}</div>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 flex-shrink-0 ml-4">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="flex mb-6">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white flex-shrink-0 mr-4">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="chat-message-ai p-4 max-w-3xl">
+                                <div class="message-content prose prose-sm">
+                                    {{ message.content|safe }}
+                                </div>
+                                <div class="text-xs text-gray-500 mt-2">{{ message.timestamp|default(now('%I:%M %p')) }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="border-t border-gray-200 p-4">
+                        <form id="chat-form" class="flex items-end">
+                            <div class="relative flex-1">
+                                <textarea id="user-input" rows="3" placeholder="Type your message..." 
+                                          class="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                          {% if not preferences.api_key_set %}disabled="disabled"{% endif %}></textarea>
+                                <div class="absolute bottom-2 right-2 flex space-x-2">
+                                    <button type="button" title="Upload file" class="text-gray-500 hover:text-blue-600">
+                                        <i class="fas fa-paperclip"></i>
+                                    </button>
+                                    <button type="button" title="Insert citation" class="text-gray-500 hover:text-blue-600">
+                                        <i class="fas fa-quote-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-10 h-10 flex items-center justify-center ml-3 flex-shrink-0"
+                                    {% if not preferences.api_key_set %}disabled="disabled"{% endif %}>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                        
+                        <div class="flex justify-between items-center mt-3 text-xs text-gray-500">
+                            <div>
+                                <span id="connected-sources" class="flex items-center">
+                                    <i class="fas fa-database mr-1"></i> Connected to 6 sources
+                                    <span id="api-status" class="inline-block w-2 h-2 {% if preferences.api_key_set %}bg-green-500{% else %}bg-red-500{% endif %} rounded-full ml-1"></span>
+                                </span>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('settings') }}" class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-cog mr-1"></i> Chat preferences
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const clearChatButton = document.getElementById('clear-chat');
+    const exportChatButton = document.getElementById('export-chat');
+    const newChatButton = document.getElementById('new-chat-btn');
+    
+    // Auto-resize textarea as user types
+    if (userInput) {
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            
+            // Limit to 6 rows max
+            if (this.scrollHeight > 150) {
+                this.style.height = '150px';
+                this.style.overflowY = 'auto';
+            } else {
+                this.style.overflowY = 'hidden';
+            }
+        });
+    }
+    
+    // Handle new chat
+    if (newChatButton) {
+        newChatButton.addEventListener('click', function() {
+            // Redirect to chat page with reset parameter
+            window.location.href = '{{ url_for("chat") }}?reset=true';
+        });
+    }
+    
+    // Handle form submission
+    if (chatForm) {
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const message = userInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage('user', message);
+            
+            // Clear input
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            
+            // Disable form while waiting
+            const submitButton = chatForm.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+            if (userInput) userInput.disabled = true;
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            try {
+                // Send request to backend
+                const response = await fetch('{{ url_for("api_chat") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: message,
+                        model: document.getElementById('model').value,
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove typing indicator
+                removeTypingIndicator();
+                
+                if (data.success) {
+                    // Add AI response
+                    addMessage('ai', data.response);
+                } else {
+                    // Show error
+                    showError(data.message || 'An error occurred while processing your request.');
+                }
+            } catch (error) {
+                // Remove typing indicator
+                removeTypingIndicator();
+                
+                // Show error
+                showError('Network error. Please check your connection and try again.');
+                console.error('Error:', error);
+            } finally {
+                // Re-enable form
+                if (submitButton) submitButton.disabled = false;
+                if (userInput) userInput.disabled = false;
+                userInput.focus();
+                
+                // Scroll to bottom
+                scrollToBottom();
+            }
+        });
+    }
+    
+    // Clear chat
+    if (clearChatButton) {
+        clearChatButton.addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear this chat? This action cannot be undone.')) {
+                // Keep only the first welcome message
+                const firstMessage = chatMessages.querySelector('.chat-message-ai');
+                if (firstMessage) {
+                    chatMessages.innerHTML = '';
+                    chatMessages.appendChild(firstMessage.parentElement.parentElement.cloneNode(true));
+                } else {
+                    chatMessages.innerHTML = '';
+                }
+                
+                // Reload the page to reset the session
+                window.location.href = '{{ url_for("chat") }}?reset=true';
+            }
+        });
+    }
+    
+    // Export chat
+    if (exportChatButton) {
+        exportChatButton.addEventListener('click', function() {
+            // Simple export as text
+            const messages = [];
+            document.querySelectorAll('.message-content').forEach(el => {
+                const role = el.closest('.chat-message-user') ? 'User' : 'AI';
+                messages.push(`${role}: ${el.textContent.trim()}`);
+            });
+            
+            const content = messages.join('\n\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ai-research-chat-' + new Date().toISOString().split('T')[0] + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }
+    
+    // Helper function to add a message to the chat
+    function addMessage(sender, text) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'flex mb-6' + (sender === 'user' ? ' justify-end' : '');
+        
+        if (sender === 'user') {
+            messageDiv.innerHTML = `
+                <div class="chat-message-user p-4 max-w-3xl">
+                    <div class="message-content prose prose-sm">
+                        <p>${escapeHtml(text)}</p>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">${timeString}</div>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 flex-shrink-0 ml-4">
+                    <i class="fas fa-user"></i>
+                </div>
+            `;
+        } else {
+            // Process markdown-like formatting
+            const formattedText = formatMessageText(text);
+            
+            messageDiv.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white flex-shrink-0 mr-4">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="chat-message-ai p-4 max-w-3xl">
+                    <div class="message-content prose prose-sm">
+                        ${formattedText}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">${timeString}</div>
+                </div>
+            `;
+        }
+        
+        chatMessages.appendChild(messageDiv);
+    }
+    
+    // Format message text with simple markdown-like parsing
+    function formatMessageText(text) {
+        if (!text) return '';
+        
+        // Escape HTML first
+        text = escapeHtml(text);
+        
+        // Convert line breaks to paragraphs
+        const paragraphs = text.split('\n\n');
+        
+        // Process each paragraph
+        return paragraphs.map(para => {
+            // Skip empty paragraphs
+            if (!para.trim()) return '';
+            
+            // Check if it's a heading
+            if (para.startsWith('# ')) {
+                return `<h3>${para.substring(2)}</h3>`;
+            } else if (para.startsWith('## ')) {
+                return `<h4>${para.substring(3)}</h4>`;
+            } else if (para.startsWith('### ')) {
+                return `<h5>${para.substring(4)}</h5>`;
+            }
+            
+            // Check if it's a list
+            if (para.includes('\n- ')) {
+                const listItems = para.split('\n- ');
+                const intro = listItems.shift();
+                return `<p>${intro}</p><ul>${listItems.map(item => `<li>${item}</li>`).join('')}</ul>`;
+            }
+            
+            // Process inline formatting
+            para = para
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+                .replace(/`(.*?)`/g, '<code>$1</code>'); // Code
+                
+            return `<p>${para}</p>`;
+        }).join('');
+    }
+    
+    // Show error message
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-red-50 border-l-4 border-red-500 p-4 my-4 rounded';
+        errorDiv.innerHTML = `
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-500"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">${escapeHtml(message)}</p>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(errorDiv);
+    }
+    
+    // Show typing indicator
+    function showTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typing-indicator';
+        typingDiv.className = 'flex mb-6';
+        
+        typingDiv.innerHTML = `
+            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white flex-shrink-0 mr-4">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="chat-message-ai p-4">
+                <div class="typing-indicator flex space-x-1">
+                    <span class="w-2 h-2 bg-gray-600 rounded-full"></span>
+                    <span class="w-2 h-2 bg-gray-600 rounded-full"></span>
+                    <span class="w-2 h-2 bg-gray-600 rounded-full"></span>
+                </div>
+            </div>
+        `;
+        
+        chatMessages.appendChild(typingDiv);
+        scrollToBottom();
+    }
+    
+    // Remove typing indicator
+    function removeTypingIndicator() {
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+    
+    // Scroll chat to bottom
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Escape HTML special characters
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Initial scroll to bottom
+    scrollToBottom();
+});
+</script>
+{% endblock %}

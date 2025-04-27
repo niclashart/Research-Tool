@@ -1,0 +1,335 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold mb-4 md:mb-0">
+            <i class="fas fa-chart-line text-blue-600 mr-2"></i> AI Research Dashboard
+        </h1>
+        <div>
+            <span class="text-gray-600 mr-2">Last Updated:</span>
+            <span id="last-updated" class="font-medium">--</span>
+        </div>
+    </div>
+    
+    <!-- Stats Overview -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-semibold mb-6">Source Statistics</h2>
+        <div id="source-stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Stats will be loaded via JavaScript -->
+            <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>
+            <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>
+            <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>
+        </div>
+    </div>
+    
+    <!-- Trending Topics -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Trending AI Topics</h2>
+                <div id="trending-container" class="w-full">
+                    <canvas id="trending-chart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Top Keywords</h2>
+                <ul id="top-keywords" class="divide-y">
+                    <!-- Keywords will be loaded via JavaScript -->
+                    <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                    <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                    <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                    <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                    <li class="py-2 skeleton-loading h-6"></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Articles -->
+    <div class="mb-12">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-semibold">Recent Articles</h2>
+            <div>
+                <button id="filter-all" class="px-4 py-2 rounded-l-lg bg-blue-600 text-white">All</button>
+                <button id="filter-arxiv" class="px-4 py-2 bg-gray-200 hover:bg-gray-300">ArXiv</button>
+                <button id="filter-news" class="px-4 py-2 rounded-r-lg bg-gray-200 hover:bg-gray-300">News</button>
+            </div>
+        </div>
+        
+        <div id="recent-articles" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Articles will be loaded via JavaScript -->
+            <div class="bg-white shadow rounded-lg p-6 hover-card">
+                <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-3/4"></div>
+            </div>
+            <div class="bg-white shadow rounded-lg p-6 hover-card">
+                <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-3/4"></div>
+            </div>
+            <div class="bg-white shadow rounded-lg p-6 hover-card">
+                <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-full mb-2"></div>
+                <div class="skeleton-loading h-4 w-3/4"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Interactive Topic Map -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-semibold mb-6">AI Topics Map</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div id="topic-map" class="w-full" style="height: 400px;">
+                <!-- Topic map visualization will be added via JavaScript -->
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <div class="mb-4 text-gray-400">
+                            <i class="fas fa-project-diagram text-4xl"></i>
+                        </div>
+                        <p class="text-gray-500">Topic map visualization will appear when enough data is available</p>
+                        <a href="/sources" class="mt-4 inline-block text-blue-600 hover:underline">
+                            Fetch more articles <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Word Cloud -->
+    <div>
+        <h2 class="text-2xl font-semibold mb-6">AI Research Word Cloud</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div id="word-cloud" class="w-full" style="height: 300px;">
+                <!-- Word cloud will be added via JavaScript -->
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <div class="mb-4 text-gray-400">
+                            <i class="fas fa-cloud text-4xl"></i>
+                        </div>
+                        <p class="text-gray-500">Word cloud will appear when enough data is available</p>
+                        <a href="/sources" class="mt-4 inline-block text-blue-600 hover:underline">
+                            Fetch more articles <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Action Button -->
+<div class="floating-action-button" onclick="location.href='/sources';">
+    <i class="fas fa-plus"></i>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Additional scripts for dashboard visualizations
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab switching for recent articles
+        const filterAll = document.getElementById('filter-all');
+        const filterArxiv = document.getElementById('filter-arxiv');
+        const filterNews = document.getElementById('filter-news');
+        
+        if (filterAll && filterArxiv && filterNews) {
+            filterAll.addEventListener('click', function() {
+                this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                this.classList.add('bg-blue-600', 'text-white');
+                
+                filterArxiv.classList.remove('bg-blue-600', 'text-white');
+                filterArxiv.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                filterNews.classList.remove('bg-blue-600', 'text-white');
+                filterNews.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                // Update displayed articles
+                loadArticles('all');
+            });
+            
+            filterArxiv.addEventListener('click', function() {
+                this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                this.classList.add('bg-blue-600', 'text-white');
+                
+                filterAll.classList.remove('bg-blue-600', 'text-white');
+                filterAll.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                filterNews.classList.remove('bg-blue-600', 'text-white');
+                filterNews.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                // Update displayed articles
+                loadArticles('arxiv');
+            });
+            
+            filterNews.addEventListener('click', function() {
+                this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                this.classList.add('bg-blue-600', 'text-white');
+                
+                filterAll.classList.remove('bg-blue-600', 'text-white');
+                filterAll.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                filterArxiv.classList.remove('bg-blue-600', 'text-white');
+                filterArxiv.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                
+                // Update displayed articles
+                loadArticles('news');
+            });
+        }
+        
+        // Load recent articles
+        function loadArticles(filter = 'all') {
+            const articlesContainer = document.getElementById('recent-articles');
+            if (!articlesContainer) return;
+            
+            // Show loading state
+            articlesContainer.innerHTML = `
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-3/4"></div>
+                </div>
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-3/4"></div>
+                </div>
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
+                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-full mb-2"></div>
+                    <div class="skeleton-loading h-4 w-3/4"></div>
+                </div>`;
+            
+            // Fetch data
+            fetch('/get-data')
+                .then(response => response.json())
+                .then(data => {
+                    let articles = [];
+                    
+                    if (filter === 'all' || filter === 'arxiv') {
+                        if (data.arxiv) {
+                            for (const [title, details] of Object.entries(data.arxiv)) {
+                                articles.push({
+                                    title: title,
+                                    source: 'ArXiv',
+                                    source_class: 'badge-blue',
+                                    date: details.published,
+                                    summary: details.summary,
+                                    link: details.link
+                                });
+                            }
+                        }
+                    }
+                    
+                    if (filter === 'all' || filter === 'news') {
+                        const newsTypes = ['techcrunch', 'venturebeat', 'theverge', 'thehackernews'];
+                        const sourceLabels = {
+                            'techcrunch': 'TechCrunch',
+                            'venturebeat': 'VentureBeat',
+                            'theverge': 'The Verge',
+                            'thehackernews': 'The Hacker News'
+                        };
+                        
+                        for (const newsType of newsTypes) {
+                            if (data[newsType] && data[newsType].length) {
+                                for (const article of data[newsType]) {
+                                    articles.push({
+                                        title: article.title || article.Titel,
+                                        source: sourceLabels[newsType],
+                                        source_class: 'badge-green',
+                                        date: article.pub_date || article.Datum,
+                                        summary: article.summary || article.Zusammenfassung,
+                                        link: article.link || article.Link
+                                    });
+                                }
+                            }
+                        }
+                        
+                        // Handle Stanford's unique format
+                        if (data.stanford && data.stanford.length) {
+                            for (const article of data.stanford) {
+                                articles.push({
+                                    title: article[0],
+                                    source: 'Stanford',
+                                    source_class: 'badge-purple',
+                                    date: '',
+                                    summary: article[2],
+                                    link: article[1]
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Sort by date (most recent first) and limit to 6
+                    articles.sort((a, b) => {
+                        // Handle empty dates
+                        if (!a.date) return 1;
+                        if (!b.date) return -1;
+                        
+                        return new Date(b.date) - new Date(a.date);
+                    });
+                    
+                    articles = articles.slice(0, 6);
+                    
+                    // Generate HTML
+                    if (articles.length > 0) {
+                        articlesContainer.innerHTML = '';
+                        
+                        for (const article of articles) {
+                            articlesContainer.innerHTML += `
+                                <div class="bg-white shadow rounded-lg p-6 hover-card fade-in">
+                                    <h3 class="text-lg font-semibold text-blue-700">${article.title}</h3>
+                                    <div class="flex flex-wrap mt-2 mb-3">
+                                        <span class="badge ${article.source_class} mr-2">${article.source}</span>
+                                        ${article.date ? `<span class="text-gray-600 text-sm"><i class="fas fa-calendar-alt mr-1"></i> ${article.date}</span>` : ''}
+                                    </div>
+                                    <p class="text-gray-600 line-clamp-3">${article.summary.substring(0, 150)}...</p>
+                                    <div class="mt-4">
+                                        <a href="${article.link}" target="_blank" class="text-blue-600 hover:underline flex items-center text-sm">
+                                            <i class="fas fa-external-link-alt mr-1"></i> Read Article
+                                        </a>
+                                    </div>
+                                </div>`;
+                        }
+                    } else {
+                        articlesContainer.innerHTML = `
+                            <div class="col-span-3 text-center py-10">
+                                <p class="text-gray-500">No articles found. Try fetching data first.</p>
+                                <a href="/sources" class="mt-4 inline-block text-blue-600 hover:underline">
+                                    Fetch Articles <i class="fas fa-arrow-right ml-1"></i>
+                                </a>
+                            </div>`;
+                    }
+                })
+                .catch(error => {
+                    articlesContainer.innerHTML = `
+                        <div class="col-span-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                            <p>Error loading articles: ${error.message}</p>
+                        </div>`;
+                });
+        }
+        
+        // Initialize dashboard
+        loadArticles('all');
+    });
+</script>
+{% endblock %}

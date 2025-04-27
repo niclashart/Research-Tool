@@ -1,0 +1,292 @@
+{% extends "layout.html" %}
+
+{% block title %}Sources{% endblock %}
+
+{% block head_additional %}
+<style>
+    .source-card {
+        transition: all 0.3s ease;
+    }
+    
+    .source-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .source-icon {
+        transition: transform 0.3s ease;
+    }
+    
+    .source-card:hover .source-icon {
+        transform: scale(1.1);
+    }
+    
+    /* Range slider value indicator */
+    .range-value {
+        position: relative;
+        display: block;
+        margin-top: 10px;
+        text-align: center;
+        font-weight: bold;
+        color: #3b82f6;
+    }
+    
+    /* Custom checkbox styling */
+    .custom-checkbox {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+    
+    .custom-checkbox input[type="checkbox"] {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .custom-checkbox label {
+        position: relative;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .custom-checkbox label:before {
+        content: '';
+        margin-right: 10px;
+        display: inline-block;
+        vertical-align: text-top;
+        width: 20px;
+        height: 20px;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .custom-checkbox input[type="checkbox"]:checked + label:before {
+        background: #3b82f6;
+        border-color: #3b82f6;
+    }
+    
+    .custom-checkbox input[type="checkbox"]:checked + label:after {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 9px;
+        background: white;
+        width: 2px;
+        height: 2px;
+        box-shadow: 2px 0 0 white, 4px 0 0 white, 4px -2px 0 white, 4px -4px 0 white, 4px -6px 0 white, 4px -8px 0 white;
+        transform: rotate(45deg);
+    }
+    
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        justify-content: center;
+    }
+    
+    .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        background-color: #a3b9d7;
+        border-radius: 50%;
+        margin: 0 2px;
+        display: inline-block;
+        animation: typing-animation 1.5s infinite ease-in-out;
+    }
+    
+    .typing-indicator span:nth-child(1) {
+        animation-delay: 0s;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing-animation {
+        0% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">
+        <i class="fas fa-newspaper text-blue-600 mr-2"></i> AI Research Sources
+    </h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Sources Configuration -->
+        <div class="md:col-span-1">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Select Sources</h2>
+                
+                <form id="fetch-data-form" class="space-y-4">
+                    <!-- Sources Selection -->
+                    <div class="space-y-2">
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-arxiv" name="sources" value="arxiv" checked>
+                            <label for="source-arxiv">ArXiv</label>
+                        </div>
+                        
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-techcrunch" name="sources" value="techcrunch">
+                            <label for="source-techcrunch">TechCrunch</label>
+                        </div>
+                        
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-venturebeat" name="sources" value="venturebeat">
+                            <label for="source-venturebeat">VentureBeat</label>
+                        </div>
+                        
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-stanford" name="sources" value="stanford">
+                            <label for="source-stanford">Stanford AI</label>
+                        </div>
+                        
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-theverge" name="sources" value="theverge">
+                            <label for="source-theverge">The Verge</label>
+                        </div>
+                        
+                        <div class="custom-checkbox">
+                            <input type="checkbox" id="source-thehackernews" name="sources" value="thehackernews">
+                            <label for="source-thehackernews">The Hacker News</label>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- ArXiv Settings -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-gray-700">ArXiv Settings</h3>
+                        
+                        <div>
+                            <label for="arxiv-category" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <select id="arxiv-category" name="arxiv-category" class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="cs.AI">Artificial Intelligence (cs.AI)</option>
+                                <option value="cs.LG" selected>Machine Learning (cs.LG)</option>
+                                <option value="cs.CV">Computer Vision (cs.CV)</option>
+                                <option value="stat.ML">Statistical ML (stat.ML)</option>
+                                <option value="cs.CL">Natural Language Processing (cs.CL)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="max-articles" class="block text-sm font-medium text-gray-700 mb-1">Max Articles</label>
+                            <div class="flex flex-col">
+                                <input type="range" id="max-articles" name="max-articles" min="1" max="30" value="10" class="range-slider">
+                                <span class="range-value" id="max-articles-value">10</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Citation Styles</label>
+                            <div class="space-y-1">
+                                <div class="custom-checkbox">
+                                    <input type="checkbox" id="citation-apa" name="citation-styles" value="apa" checked>
+                                    <label for="citation-apa">APA</label>
+                                </div>
+                                
+                                <div class="custom-checkbox">
+                                    <input type="checkbox" id="citation-mla" name="citation-styles" value="mla">
+                                    <label for="citation-mla">MLA</label>
+                                </div>
+                                
+                                <div class="custom-checkbox">
+                                    <input type="checkbox" id="citation-chicago" name="citation-styles" value="chicago">
+                                    <label for="citation-chicago">Chicago</label>
+                                </div>
+                                
+                                <div class="custom-checkbox">
+                                    <input type="checkbox" id="citation-bibtex" name="citation-styles" value="bibtex">
+                                    <label for="citation-bibtex">BibTeX</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center">
+                            <i class="fas fa-sync-alt mr-2"></i> Fetch Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Status Display -->
+            <div id="status-container" class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4">Status</h3>
+                <div class="text-gray-600">
+                    <p>Select sources and click "Fetch Data" to start</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Container -->
+        <div class="md:col-span-2">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-6">Results</h2>
+                
+                <div id="results-container" class="mt-4">
+                    <div class="text-center text-gray-500 py-10">
+                        <i class="fas fa-newspaper text-4xl mb-4 opacity-30"></i>
+                        <p>Select sources and fetch data to see results here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update range slider value
+        const maxArticlesSlider = document.getElementById('max-articles');
+        const maxArticlesValue = document.getElementById('max-articles-value');
+        
+        if (maxArticlesSlider && maxArticlesValue) {
+            maxArticlesSlider.addEventListener('input', function() {
+                maxArticlesValue.textContent = this.value;
+            });
+        }
+        
+        // Alert user if no sources are selected
+        const fetchDataForm = document.getElementById('fetch-data-form');
+        
+        if (fetchDataForm) {
+            fetchDataForm.addEventListener('submit', function(e) {
+                const selectedSources = document.querySelectorAll('input[name="sources"]:checked');
+                
+                if (selectedSources.length === 0) {
+                    e.preventDefault();
+                    alert('Please select at least one source.');
+                    return false;
+                }
+            });
+        }
+    });
+    
+    // Define global function for toggle citations
+    function toggleElement(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.toggle('hidden');
+            
+            // Add slide animation
+            if (!element.classList.contains('hidden')) {
+                element.classList.add('slide-in');
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -6,6 +6,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 
 # ==== CONFIGURATION ====
@@ -21,16 +23,44 @@ options = Options()
 options.add_argument("--headless")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
-options.binary_location = "/usr/bin/chromium"
+# Wichtig: Diese Option ermöglicht Nutzung trotz Versionsunterschieden
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-gpu")
+options.add_experimental_option("excludeSwitches", ["enable-automation"])
+options.add_experimental_option("useAutomationExtension", False)
+options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
-driver = webdriver.Chrome(options=options)
+try:
+    # Versuche mit WebDriverManager
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+except Exception as e:
+    print(f"WebDriverManager fehlgeschlagen: {e}")
+    print("Versuche direkte WebDriver-Initialisierung...")
+    # Fallback auf direkten WebDriver ohne Manager
+    driver = webdriver.Chrome(options=options)
 
 # ==== STEP 1: GET BLOG POST LINKS ====
 def get_blog_links(main_url):
+    # ==== SETUP HEADLESS CHROME ====
     options = Options()
     options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    # Wichtig: Diese Option ermöglicht Nutzung trotz Versionsunterschieden
+    options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    driver = webdriver.Chrome(options=options)
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+    try:
+        # Versuche mit WebDriverManager
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    except Exception as e:
+        print(f"WebDriverManager fehlgeschlagen: {e}")
+        print("Versuche direkte WebDriver-Initialisierung...")
+        # Fallback auf direkten WebDriver ohne Manager
+        driver = webdriver.Chrome(options=options)
     
     driver.get(main_url)
     time.sleep(10)
@@ -60,11 +90,26 @@ def get_blog_links(main_url):
     return links
 
 def extract_article(url):
+    # ==== SETUP HEADLESS CHROME ====
     options = Options()
     options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    # Wichtig: Diese Option ermöglicht Nutzung trotz Versionsunterschieden
+    options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    driver = webdriver.Chrome(options=options)
-    
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+    try:
+        # Versuche mit WebDriverManager
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    except Exception as e:
+        print(f"WebDriverManager fehlgeschlagen: {e}")
+        print("Versuche direkte WebDriver-Initialisierung...")
+        # Fallback auf direkten WebDriver ohne Manager
+        driver = webdriver.Chrome(options=options)
     driver.get(url)
     try:
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "post-content")))

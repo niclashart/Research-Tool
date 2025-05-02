@@ -1,12 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Research Hub - {% block title %}Home{% endblock %}</title>
     
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS via CDN with dark mode support -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        // Custom colors if needed
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -17,42 +29,141 @@
     <!-- Your custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
+    <style>
+        /* Globale Ladeanimationen */
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        .loading-spinner-sm {
+            width: 24px;
+            height: 24px;
+            border-width: 2px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+        
+        .loader-text {
+            margin-top: 16px;
+            font-weight: medium;
+            color: #3b82f6;
+        }
+        
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            background-color: #e2e8f0;
+            border-radius: 4px;
+            height: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-inner {
+            height: 100%;
+            background-color: #3b82f6;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Dark mode anpassungen für die Ladeanimationen */
+        .dark .loader-overlay {
+            background-color: rgba(17, 24, 39, 0.7);
+        }
+        
+        .dark .loader-text {
+            color: #60a5fa;
+        }
+        
+        .dark .progress-bar {
+            background-color: #374151;
+        }
+        
+        .dark .loading-spinner {
+            border-color: rgba(96, 165, 250, 0.3);
+            border-top-color: #60a5fa;
+        }
+    </style>
+    
     {% block head_additional %}{% endblock %}
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col transition-colors duration-200">
     <!-- Top Navigation -->
-    <nav class="bg-white shadow-md">
+    <nav class="bg-white dark:bg-gray-800 shadow-md">
         <div class="container mx-auto px-4">
             <div class="flex justify-between h-16">
                 <!-- Logo and Main Navigation -->
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
                         <a href="/" class="flex items-center">
-                            <i class="fas fa-robot text-blue-600 text-xl mr-2"></i>
-                            <span class="text-xl font-bold text-gray-800">AI Research Hub</span>
+                            <i class="fas fa-robot text-blue-600 dark:text-blue-400 text-xl mr-2"></i>
+                            <span class="text-xl font-bold text-gray-800 dark:text-white">AI Research Hub</span>
                         </a>
                     </div>
                     <div class="hidden md:ml-10 md:flex md:items-center md:space-x-4">
-                        <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Home</a>
-                        <a href="/dashboard" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Dashboard</a>
-                        <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Sources</a>
-                        <a href="/chat" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">AI Chat</a>
+                        <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Home</a>
+                        <a href="/dashboard" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard</a>
+                        <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Sources</a>
+                        <a href="/chat" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">AI Chat</a>
                     </div>
                 </div>
                 
                 <!-- Right Navigation Menu -->
                 <div class="hidden md:flex md:items-center md:space-x-4">
-                    <a href="/settings" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                    <!-- Theme Toggle Button -->
+                    <button id="theme-toggle" class="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-2">
+                        <i class="fas fa-sun text-yellow-500 dark:hidden"></i>
+                        <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                    </button>
+                    
+                    <a href="/settings" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium">
                         <i class="fas fa-cog mr-1"></i> Settings
                     </a>
-                    <a href="https://github.com/yourusername/ai-research-hub" target="_blank" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                    <a href="https://github.com/yourusername/ai-research-hub" target="_blank" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium">
                         <i class="fab fa-github mr-1"></i> GitHub
                     </a>
                 </div>
                 
                 <!-- Mobile menu button -->
                 <div class="flex items-center md:hidden">
-                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-100 focus:outline-none">
+                    <!-- Mobile Theme Toggle -->
+                    <button id="mobile-theme-toggle" class="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-2 mr-2">
+                        <i class="fas fa-sun text-yellow-500 dark:hidden"></i>
+                        <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                    </button>
+                    
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
                         <i class="fas fa-bars"></i>
                     </button>
                 </div>
@@ -62,12 +173,12 @@
         <!-- Mobile menu -->
         <div id="mobile-menu" class="hidden md:hidden">
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Home</a>
-                <a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Dashboard</a>
-                <a href="/sources" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Sources</a>
-                <a href="/chat" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">AI Chat</a>
-                <a href="/settings" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Settings</a>
-                <a href="https://github.com/yourusername/ai-research-hub" target="_blank" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">GitHub</a>
+                <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Home</a>
+                <a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard</a>
+                <a href="/sources" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Sources</a>
+                <a href="/chat" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">AI Chat</a>
+                <a href="/settings" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">Settings</a>
+                <a href="https://github.com/yourusername/ai-research-hub" target="_blank" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">GitHub</a>
             </div>
         </div>
     </nav>
@@ -78,27 +189,27 @@
     </main>
     
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200">
+    <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <div class="container mx-auto px-4 py-6">
             <div class="flex flex-col md:flex-row justify-between items-center">
-                <div class="text-gray-600 text-sm mb-4 md:mb-0">
-                    &copy; {% now 'Y' %} AI Research Hub. All rights reserved.
+                <div class="text-gray-600 dark:text-gray-400 text-sm mb-4 md:mb-0">
+                    &copy; {{ '' | now('Y') }} AI Research Hub. All rights reserved.
                 </div>
                 
                 <div class="flex space-x-4">
-                    <a href="#" class="text-gray-500 hover:text-blue-600">
+                    <a href="#" class="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
                         <i class="fab fa-twitter"></i>
                     </a>
-                    <a href="#" class="text-gray-500 hover:text-blue-600">
+                    <a href="#" class="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
                         <i class="fab fa-github"></i>
                     </a>
-                    <a href="#" class="text-gray-500 hover:text-blue-600">
+                    <a href="#" class="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
                         <i class="fab fa-linkedin"></i>
                     </a>
                 </div>
                 
-                <div class="text-gray-600 text-sm mt-4 md:mt-0">
-                    Created with <i class="fas fa-heart text-red-500"></i> by Your Name
+                <div class="text-gray-600 dark:text-gray-400 text-sm mt-4 md:mt-0">
+                    Created with <i class="fas fa-heart text-red-500"></i> by Niclas Hart
                 </div>
             </div>
         </div>
@@ -107,6 +218,68 @@
     <!-- Your custom JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     
+    <!-- Theme & Language Management -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle functionality
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+            
+            // Theme toggle functionality
+            function setTheme(theme) {
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                }
+            }
+            
+            // Load theme from localStorage or system preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                setTheme('dark');
+            }
+            
+            // Theme toggle button handler
+            const themeToggle = document.getElementById('theme-toggle');
+            const mobileThemeToggle = document.getElementById('mobile-theme-toggle');
+            
+            function toggleTheme() {
+                if (document.documentElement.classList.contains('dark')) {
+                    setTheme('light');
+                } else {
+                    setTheme('dark');
+                }
+            }
+            
+            if (themeToggle) {
+                themeToggle.addEventListener('click', toggleTheme);
+            }
+            
+            if (mobileThemeToggle) {
+                mobileThemeToggle.addEventListener('click', toggleTheme);
+            }
+            
+            // Language handler
+            const savedLanguage = localStorage.getItem('language');
+            if (savedLanguage) {
+                document.documentElement.lang = savedLanguage;
+            }
+        });
+    </script>
+    
+    <!-- Optional JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

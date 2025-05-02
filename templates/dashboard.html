@@ -3,6 +3,17 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
+<!-- Globale Ladeanimation -->
+<div id="global-loader" class="loader-overlay hidden">
+    <div class="loading-spinner"></div>
+    <p class="loader-text mt-4">Lade Dashboard-Daten...</p>
+    <div class="mt-4 w-64">
+        <div class="progress-bar">
+            <div id="global-loader-progress" class="progress-bar-inner"></div>
+        </div>
+    </div>
+</div>
+
 <div class="container mx-auto px-4 py-8">
     <div class="flex flex-col md:flex-row justify-between items-center mb-8">
         <h1 class="text-3xl font-bold mb-4 md:mb-0">
@@ -146,6 +157,10 @@
         const filterArxiv = document.getElementById('filter-arxiv');
         const filterNews = document.getElementById('filter-news');
         
+        // Load dashboard data
+        loadDashboardData();
+        
+        // Setup filter listeners
         if (filterAll && filterArxiv && filterNews) {
             filterAll.addEventListener('click', function() {
                 this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
@@ -190,146 +205,541 @@
             });
         }
         
-        // Load recent articles
-        function loadArticles(filter = 'all') {
-            const articlesContainer = document.getElementById('recent-articles');
-            if (!articlesContainer) return;
+        // Function to load dashboard data
+        function loadDashboardData() {
+            // Update loading state for all components
+            document.getElementById('source-stats').innerHTML = `
+                <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>
+                <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>
+                <div class="bg-white shadow rounded-lg p-6 hover-card skeleton-loading h-24"></div>`;
             
-            // Show loading state
-            articlesContainer.innerHTML = `
-                <div class="bg-white shadow rounded-lg p-6 hover-card">
-                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
-                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-3/4"></div>
-                </div>
-                <div class="bg-white shadow rounded-lg p-6 hover-card">
-                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
-                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-3/4"></div>
-                </div>
-                <div class="bg-white shadow rounded-lg p-6 hover-card">
-                    <div class="skeleton-loading h-6 w-3/4 mb-3"></div>
-                    <div class="skeleton-loading h-4 w-1/4 mb-4"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-full mb-2"></div>
-                    <div class="skeleton-loading h-4 w-3/4"></div>
-                </div>`;
+            document.getElementById('top-keywords').innerHTML = `
+                <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                <li class="py-2 skeleton-loading h-6 mb-2"></li>
+                <li class="py-2 skeleton-loading h-6"></li>`;
             
-            // Fetch data
-            fetch('/get-data')
-                .then(response => response.json())
-                .then(data => {
-                    let articles = [];
-                    
-                    if (filter === 'all' || filter === 'arxiv') {
-                        if (data.arxiv) {
-                            for (const [title, details] of Object.entries(data.arxiv)) {
-                                articles.push({
-                                    title: title,
-                                    source: 'ArXiv',
-                                    source_class: 'badge-blue',
-                                    date: details.published,
-                                    summary: details.summary,
-                                    link: details.link
-                                });
-                            }
-                        }
+            // Hole die gespeicherten Quellen aus localStorage
+            let selectedSources = [];
+            try {
+                const formState = localStorage.getItem('sourcesFormState');
+                if (formState) {
+                    const parsedState = JSON.parse(formState);
+                    if (parsedState.selectedSources && Array.isArray(parsedState.selectedSources)) {
+                        selectedSources = parsedState.selectedSources;
                     }
+                }
+            } catch (error) {
+                console.error('Error reading sources from localStorage:', error);
+            }
+            
+            if (selectedSources.length === 0) {
+                // Wenn keine Quellen ausgewählt sind, zeige einen Hinweis an
+                document.getElementById('source-stats').innerHTML = `
+                    <div class="col-span-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                        <p>Keine Quellen ausgewählt. Bitte wählen Sie Quellen auf der Quellen-Seite aus.</p>
+                        <p class="mt-2"><a href="/sources" class="text-blue-600 hover:underline">Zu den Quellen</a></p>
+                    </div>`;
+                document.getElementById('recent-articles').innerHTML = '';
+                document.getElementById('top-keywords').innerHTML = '';
+                document.getElementById('trending-container').innerHTML = '';
+                return;
+            }
+            
+            // Source-spezifischer Cache-Key
+            const cacheKey = `dashboardData_${selectedSources.sort().join('-')}`;
+            
+            // Versuche zuerst, die gespeicherten Daten aus dem localStorage zu laden
+            try {
+                const savedDashboardData = localStorage.getItem(cacheKey);
+                if (savedDashboardData) {
+                    const data = JSON.parse(savedDashboardData);
+                    // Prüfe, ob die Daten weniger als 15 Minuten alt sind
+                    const now = new Date().getTime();
+                    const savedTime = data.savedTime || 0;
+                    const fifteenMinutes = 15 * 60 * 1000; // 15 Minuten in Millisekunden
                     
-                    if (filter === 'all' || filter === 'news') {
-                        const newsTypes = ['techcrunch', 'venturebeat', 'theverge', 'thehackernews'];
-                        const sourceLabels = {
-                            'techcrunch': 'TechCrunch',
-                            'venturebeat': 'VentureBeat',
-                            'theverge': 'The Verge',
-                            'thehackernews': 'The Hacker News'
-                        };
+                    if (now - savedTime < fifteenMinutes) {
+                        console.log(`Using saved dashboard data for sources: ${selectedSources.join(', ')}`);
+                        updateDashboardWithData(data);
                         
-                        for (const newsType of newsTypes) {
-                            if (data[newsType] && data[newsType].length) {
-                                for (const article of data[newsType]) {
-                                    articles.push({
-                                        title: article.title || article.Titel,
-                                        source: sourceLabels[newsType],
-                                        source_class: 'badge-green',
-                                        date: article.pub_date || article.Datum,
-                                        summary: article.summary || article.Zusammenfassung,
-                                        link: article.link || article.Link
-                                    });
+                        // Zeige Info, dass Daten aus dem Cache geladen wurden
+                        document.getElementById('last-updated').innerText = `${new Date(savedTime).toLocaleTimeString()} (cached)`;
+                        
+                        // Füge einen Refresh-Button hinzu
+                        const refreshButton = document.createElement('button');
+                        refreshButton.classList.add('ml-2', 'px-2', 'py-1', 'bg-blue-100', 'hover:bg-blue-200', 'text-blue-800', 'rounded-md', 'text-xs');
+                        refreshButton.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
+                        refreshButton.addEventListener('click', fetchFreshDashboardData);
+                        document.getElementById('last-updated').parentNode.appendChild(refreshButton);
+                        
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading saved dashboard data:', error);
+            }
+            
+            // Wenn keine gespeicherten Daten vorhanden oder zu alt sind, hole frische Daten
+            fetchFreshDashboardData();
+        }
+        
+        // Funktion zum Abrufen frischer Dashboard-Daten vom Server
+        function fetchFreshDashboardData() {
+            // Hole die gespeicherten Quellen aus localStorage
+            let selectedSources = [];
+            try {
+                const formState = localStorage.getItem('sourcesFormState');
+                if (formState) {
+                    const parsedState = JSON.parse(formState);
+                    if (parsedState.selectedSources && Array.isArray(parsedState.selectedSources)) {
+                        selectedSources = parsedState.selectedSources;
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading sources from localStorage:', error);
+            }
+            
+            // Wenn keine Quellen ausgewählt sind, zeige eine Meldung an
+            if (selectedSources.length === 0) {
+                document.getElementById('source-stats').innerHTML = `
+                    <div class="col-span-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                        <p>Keine Quellen ausgewählt. Bitte wählen Sie Quellen auf der Quellen-Seite aus.</p>
+                        <p class="mt-2"><a href="/sources" class="text-blue-600 hover:underline">Zu den Quellen</a></p>
+                    </div>`;
+                document.getElementById('recent-articles').innerHTML = '';
+                document.getElementById('top-keywords').innerHTML = '';
+                document.getElementById('trending-container').innerHTML = '';
+                return;
+            }
+
+            console.log('Fetching fresh dashboard data with sources:', selectedSources);
+            
+            // Zeige Ladeanimation
+            const loader = document.getElementById('global-loader');
+            const progress = document.getElementById('global-loader-progress');
+            loader.classList.remove('hidden');
+            
+            // Simuliere Fortschrittsanzeige
+            let progressValue = 0;
+            const progressInterval = setInterval(() => {
+                progressValue += 5;
+                if (progressValue > 90) {
+                    clearInterval(progressInterval);
+                }
+                progress.style.width = progressValue + '%';
+            }, 300);
+            
+            // Fetch data from the backend with selected sources
+            fetch('/get-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sources: selectedSources
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Verstecke Ladeanimation und zeige 100% Fortschritt
+                clearInterval(progressInterval);
+                progress.style.width = '100%';
+                setTimeout(() => {
+                    loader.classList.add('hidden');
+                    progress.style.width = '0%';
+                }, 500);
+                
+                console.log('Fresh dashboard data received:', data);
+                
+                // Speichere die Daten im localStorage mit einem spezifischen Schlüssel basierend auf den ausgewählten Quellen
+                data.savedTime = new Date().getTime();
+                data.selectedSources = selectedSources;
+                const cacheKey = `dashboardData_${selectedSources.sort().join('-')}`;
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+                localStorage.setItem('lastUsedCacheKey', cacheKey);
+                
+                // Aktualisiere das Dashboard mit den neuen Daten
+                updateDashboardWithData(data);
+                
+                // Zeige eine Erfolgsbenachrichtigung an
+                document.getElementById('last-updated').innerHTML = `
+                    ${new Date().toLocaleTimeString()} 
+                    <span class="text-green-600 text-xs ml-2">
+                        <i class="fas fa-check-circle"></i> Updated
+                    </span>
+                `;
+            })
+            .catch(error => {
+                // Verstecke Ladeanimation bei Fehler
+                clearInterval(progressInterval);
+                loader.classList.add('hidden');
+                
+                console.error('Error loading dashboard data:', error);
+                document.getElementById('source-stats').innerHTML = `
+                    <div class="col-span-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                        <p>Error loading dashboard data: ${error.message}</p>
+                        <p class="mt-2">Try refreshing the page or check the console for details.</p>
+                    </div>`;
+            });
+        }
+        
+        // Funktion zum Aktualisieren aller Dashboard-Elemente mit Daten
+        function updateDashboardWithData(data) {
+            // Update last updated time
+            document.getElementById('last-updated').innerText = data.last_updated || new Date().toLocaleString();
+            
+            // Update source stats
+            updateSourceStats(data);
+            
+            // Update keywords
+            updateTopKeywords(data);
+            
+            // Initialize or update trending chart
+            initTrendingChart(data);
+            
+            // Load initial articles
+            loadArticles('all', data);
+        }
+        
+        // Function to update source statistics display
+        function updateSourceStats(data) {
+            if (!data || !data.sourceStats) {
+                console.error('No source stats data available');
+                return;
+            }
+            
+            const statsContainer = document.getElementById('source-stats');
+            
+            // Clear loading skeletons
+            statsContainer.innerHTML = '';
+            
+            // Create stat cards
+            const totalArticles = data.sourceStats.totalArticles || 0;
+            const totalSources = data.sourceStats.sources ? Object.keys(data.sourceStats.sources).length : 0;
+            const lastUpdated = data.last_updated || 'Never';
+            
+            // Add total articles card
+            statsContainer.innerHTML += `
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                            <i class="fas fa-newspaper text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">Total Articles</p>
+                            <p class="text-2xl font-semibold">${totalArticles}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add total sources card
+            statsContainer.innerHTML += `
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-600">
+                            <i class="fas fa-database text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">Total Sources</p>
+                            <p class="text-2xl font-semibold">${totalSources}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add last updated card
+            statsContainer.innerHTML += `
+                <div class="bg-white shadow rounded-lg p-6 hover-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                            <i class="fas fa-clock text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">Last Data Refresh</p>
+                            <p class="text-2xl font-semibold">${
+                                typeof lastUpdated === 'string' ? lastUpdated : new Date(lastUpdated).toLocaleString()
+                            }</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Function to update top keywords list
+        function updateTopKeywords(data) {
+            if (!data || !data.topKeywords || !data.topKeywords.length) {
+                console.error('No keyword data available');
+                return;
+            }
+            
+            const keywordsContainer = document.getElementById('top-keywords');
+            
+            // Clear loading skeletons
+            keywordsContainer.innerHTML = '';
+            
+            // Add each keyword with count
+            data.topKeywords.slice(0, 5).forEach((keyword, index) => {
+                keywordsContainer.innerHTML += `
+                    <li class="py-3 flex justify-between items-center ${index < 4 ? 'border-b border-gray-200' : ''}">
+                        <div class="flex items-center">
+                            <span class="text-lg font-medium">${index + 1}.</span>
+                            <span class="ml-3 text-gray-900">${keyword.term}</span>
+                        </div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">${keyword.count}</span>
+                    </li>
+                `;
+            });
+        }
+        
+        // Function to initialize trending topics chart
+        function initTrendingChart(data) {
+            if (!data || !data.trendingTopics || !data.trendingTopics.length) {
+                console.error('No trending data available');
+                return;
+            }
+            
+            const ctx = document.getElementById('trending-chart');
+            if (!ctx) return;
+            
+            // Process data for chart
+            const topics = data.trendingTopics.slice(0, 7); // Top 7 topics
+            const labels = topics.map(topic => topic.term);
+            const values = topics.map(topic => topic.trend || topic.count);
+            
+            // Use Chart.js to create a bar chart
+            if (window.trendingChart) {
+                window.trendingChart.destroy();
+            }
+            
+            window.trendingChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Trend Score',
+                        data: values,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Score: ${context.raw}`;
                                 }
                             }
                         }
-                        
-                        // Handle Stanford's unique format
-                        if (data.stanford && data.stanford.length) {
-                            for (const article of data.stanford) {
-                                articles.push({
-                                    title: article[0],
-                                    source: 'Stanford',
-                                    source_class: 'badge-purple',
-                                    date: '',
-                                    summary: article[2],
-                                    link: article[1]
-                                });
-                            }
-                        }
                     }
-                    
-                    // Sort by date (most recent first) and limit to 6
-                    articles.sort((a, b) => {
-                        // Handle empty dates
-                        if (!a.date) return 1;
-                        if (!b.date) return -1;
-                        
-                        return new Date(b.date) - new Date(a.date);
-                    });
-                    
-                    articles = articles.slice(0, 6);
-                    
-                    // Generate HTML
-                    if (articles.length > 0) {
-                        articlesContainer.innerHTML = '';
-                        
-                        for (const article of articles) {
-                            articlesContainer.innerHTML += `
-                                <div class="bg-white shadow rounded-lg p-6 hover-card fade-in">
-                                    <h3 class="text-lg font-semibold text-blue-700">${article.title}</h3>
-                                    <div class="flex flex-wrap mt-2 mb-3">
-                                        <span class="badge ${article.source_class} mr-2">${article.source}</span>
-                                        ${article.date ? `<span class="text-gray-600 text-sm"><i class="fas fa-calendar-alt mr-1"></i> ${article.date}</span>` : ''}
-                                    </div>
-                                    <p class="text-gray-600 line-clamp-3">${article.summary.substring(0, 150)}...</p>
-                                    <div class="mt-4">
-                                        <a href="${article.link}" target="_blank" class="text-blue-600 hover:underline flex items-center text-sm">
-                                            <i class="fas fa-external-link-alt mr-1"></i> Read Article
-                                        </a>
-                                    </div>
-                                </div>`;
-                        }
-                    } else {
-                        articlesContainer.innerHTML = `
-                            <div class="col-span-3 text-center py-10">
-                                <p class="text-gray-500">No articles found. Try fetching data first.</p>
-                                <a href="/sources" class="mt-4 inline-block text-blue-600 hover:underline">
-                                    Fetch Articles <i class="fas fa-arrow-right ml-1"></i>
-                                </a>
-                            </div>`;
-                    }
-                })
-                .catch(error => {
-                    articlesContainer.innerHTML = `
-                        <div class="col-span-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-                            <p>Error loading articles: ${error.message}</p>
-                        </div>`;
-                });
+                }
+            });
         }
         
-        // Initialize dashboard
-        loadArticles('all');
+        // Function to load articles filtered by source
+        function loadArticles(filter = 'all', data = null) {
+            // If data is not provided, try to get it from localStorage
+            if (!data) {
+                try {
+                    const savedData = localStorage.getItem('dashboardData');
+                    if (savedData) {
+                        data = JSON.parse(savedData);
+                    }
+                } catch (error) {
+                    console.error('Error loading saved dashboard data:', error);
+                }
+            }
+            
+            if (!data || !data.recentArticles) {
+                console.error('No articles data available');
+                return;
+            }
+            
+            const articlesContainer = document.getElementById('recent-articles');
+            
+            // Clear loading skeletons
+            articlesContainer.innerHTML = '';
+            
+            // Filter articles based on selected tab
+            let articles = data.recentArticles;
+            if (filter === 'arxiv') {
+                articles = articles.filter(article => article.source === 'arxiv');
+            } else if (filter === 'news') {
+                articles = articles.filter(article => article.source !== 'arxiv');
+            }
+            
+            // Show message if no articles
+            if (!articles.length) {
+                articlesContainer.innerHTML = `
+                    <div class="col-span-full p-6 text-center">
+                        <p class="text-gray-500">No articles found from selected sources</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Add article cards (limit to 9)
+            articles.slice(0, 9).forEach(article => {
+                const date = new Date(article.date);
+                const formattedDate = date.toLocaleDateString();
+                const source = article.source || 'unknown';
+                const sourceIcon = getSourceIcon(source);
+                
+                articlesContainer.innerHTML += `
+                    <div class="bg-white shadow rounded-lg p-6 hover-card">
+                        <div class="flex items-center mb-3">
+                            <div class="p-1 rounded-full ${getSourceColor(source)}">
+                                <i class="${sourceIcon} text-lg"></i>
+                            </div>
+                            <span class="ml-2 text-sm text-gray-600">${source}</span>
+                            <span class="ml-auto text-xs text-gray-500">${formattedDate}</span>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${article.title}</h3>
+                        <p class="text-gray-600 mb-3 text-sm line-clamp-3">${article.summary || 'No summary available'}</p>
+                        <a href="${article.url}" target="_blank" class="text-blue-600 hover:underline text-sm">
+                            Read more <i class="fas fa-external-link-alt ml-1"></i>
+                        </a>
+                    </div>
+                `;
+            });
+        }
+        
+        // Helper function to get source icon
+        function getSourceIcon(source) {
+            const sourceIcons = {
+                'arxiv': 'fas fa-file-alt',
+                'techcrunch': 'fas fa-rocket',
+                'theverge': 'fas fa-rss',
+                'thehackernews': 'fas fa-shield-alt',
+                'venturebeat': 'fas fa-chart-line',
+                'stanford': 'fas fa-university',
+                'default': 'fas fa-globe'
+            };
+            
+            return sourceIcons[source.toLowerCase()] || sourceIcons.default;
+        }
+        
+        // Helper function to get source color
+        function getSourceColor(source) {
+            const sourceColors = {
+                'arxiv': 'bg-blue-100 text-blue-600',
+                'techcrunch': 'bg-green-100 text-green-600',
+                'theverge': 'bg-yellow-100 text-yellow-600',
+                'thehackernews': 'bg-red-100 text-red-600',
+                'venturebeat': 'bg-purple-100 text-purple-600',
+                'stanford': 'bg-indigo-100 text-indigo-600',
+                'default': 'bg-gray-100 text-gray-600'
+            };
+            
+            return sourceColors[source.toLowerCase()] || sourceColors.default;
+        }
     });
 </script>
+
+<style>
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 9999px;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .hover-card {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .skeleton-loading {
+        position: relative;
+        overflow: hidden;
+        background-color: #e2e8f0;
+        border-radius: 4px;
+    }
+    
+    .skeleton-loading::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: -100%;
+        bottom: 0;
+        left: -100%;
+        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+        animation: shimmer 1.5s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .floating-action-button {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 60px;
+        height: 60px;
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 10;
+    }
+    
+    .floating-action-button:hover {
+        transform: scale(1.1);
+        background-color: #2563eb;
+    }
+    
+    .floating-action-button i {
+        font-size: 24px;
+    }
+</style>
 {% endblock %}

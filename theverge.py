@@ -6,8 +6,42 @@ from openai import OpenAI
 from datetime import datetime, timedelta, timezone
 import time
 import re
+import os
+import json
 
 SITEMAP_FEED_URL = "https://www.theverge.com/rss/index.xml"
+
+# Maximale Anzahl an Artikeln, die verarbeitet werden sollen
+MAX_ARTICLES = 10
+
+# Cache-Verzeichnis für verarbeitete Artikel
+CACHE_DIR = "cache"
+THEVERGE_CACHE_FILE = os.path.join(CACHE_DIR, "theverge_processed_articles.json")
+
+# Stellen Sie sicher, dass das Cache-Verzeichnis existiert
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Laden des Caches mit bereits verarbeiteten Artikeln
+def load_processed_articles():
+    if os.path.exists(THEVERGE_CACHE_FILE):
+        try:
+            with open(THEVERGE_CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Fehler beim Laden des TheVerge-Artikel-Caches: {e}")
+    return {"processed_urls": [], "last_update": datetime.now().isoformat()}
+
+# Aktualisieren des Caches mit neu verarbeiteten Artikeln
+def save_processed_articles(processed_urls):
+    cache_data = {
+        "processed_urls": processed_urls,
+        "last_update": datetime.now().isoformat()
+    }
+    try:
+        with open(THEVERGE_CACHE_FILE, 'w') as f:
+            json.dump(cache_data, f)
+    except Exception as e:
+        print(f"Fehler beim Speichern des TheVerge-Artikel-Caches: {e}")
 
 client = OpenAI(api_key=key_manager.get_openai_key())
 
@@ -79,11 +113,17 @@ def summarize_with_openai(link, api_key):
     )
 
     if not article_text:
-        return None, [], []
+        return None
 
+    # Prüfe, ob der Artikel KI-bezogen ist
     if not is_meaningfully_about_ai(article_text, api_key):
         print("❌ GPT sagt: Kein AI-Artikel. Wird übersprungen.")
-        return None, [], []
+        return None
+
+    # Extrahiere Keywords für Debugging
+    keywords, sentences = is_ai_related(article_text)
+    if keywords:
+        print(f"Gefundene AI-Keywords: {', '.join(keywords)}")
 
     prompt = f"Summarize this blog post in a short paragraph. Focus on the most important, AI-related information in the summary: \n\n{article_text[:3000]}"
 
@@ -99,45 +139,77 @@ def summarize_with_openai(link, api_key):
 
 def main_verge():
     print("📡 Abrufen der RSS-Feeds von The Verge...")
+    
+    # Laden der bereits verarbeiteten Artikel
+    cache_data = load_processed_articles()
+    processed_urls = set(cache_data.get("processed_urls", []))
+    
     articles = get_recent_articles_from_sitemap(SITEMAP_FEED_URL)
 
     if not articles:
-        print("❌ Keine aktuellen Artikel in den letzten 24 Stunden gefunden.")
-        return None
+        print("❌ Keine aktuellen The Verge Artikel in den letzten 24 Stunden gefunden.")
+        return []
 
-    print(f"✅ {len(articles)} aktuelle Artikel gefunden.")
+    print(f"✅ {len(articles)} aktuelle The Verge Artikel gefunden.")
+    
+    # Filtern bereits verarbeiteter Artikel
+    new_articles = [article for article in articles if article["link"] not in processed_urls]
+    if not new_articles:
+        print("✓ Alle verfügbaren The Verge Artikel wurden bereits verarbeitet.")
+        return []
+        
+    print(f"✓ {len(new_articles)} neue The Verge Artikel zum Verarbeiten gefunden.")
 
     summarized_articles = []
-    for article in articles:
-        print(f"\n✏️ Prüfe Artikel auf AI-Bezug: {article['title']}")
-        summary, matched_keywords, matched_sentences = summarize_with_openai(article['link'], key_manager.get_openai_key())
-        if summary:
-            print(f"✅ GPT validiert: Artikel ist AI-relevant.")
-            print(f"Gefundene Keywords: {', '.join(matched_keywords)}")
-            for sent in matched_sentences:
-                print(f"→ {sent}")
-            summarized_articles.append({
-                "Titel": article["title"],
-                "Link": article["link"],
-                "Zusammenfassung": summary,
-                "Keywords": matched_keywords,
-                "Keyword_Sätze": matched_sentences,
-                "Datum": datetime.today().strftime('%Y-%m-%d')
-            })
-        else:
-            print("⏩ Übersprungen.")
-        time.sleep(1)  
+    articles_processed = 0
+    
+    # Begrenzen der Anzahl zu verarbeitender Artikel
+    articles_to_process = new_articles[:MAX_ARTICLES]
+    total_articles = len(articles_to_process)
+    
+    for idx, article in enumerate(articles_to_process, 1):
+        print(f"\n✏️ Prüfe Artikel auf AI-Bezug [{idx}/{total_articles}]: {article['title']}")
+        try:
+            summary = summarize_with_openai(article['link'], key_manager.get_openai_key())
+            
+            if summary:
+                print(f"✅ GPT validiert: Artikel ist AI-relevant.")
+                summarized_articles.append([
+                    article["title"],
+                    article["link"],
+                    summary,
+                    datetime.today().strftime('%Y-%m-%d')
+                ])
+                
+                # URL als verarbeitet markieren
+                processed_urls.add(article["link"])
+                articles_processed += 1
+            else:
+                print("⏩ Kein AI-Bezug, übersprungen.")
+                # Auch nicht-AI-relevante Artikel als verarbeitet markieren
+                processed_urls.add(article["link"])
+        except Exception as e:
+            print(f"⚠️ Fehler bei der Verarbeitung von '{article['title']}': {str(e)}")
+        
+        # Speichere regelmäßig den Cache
+        if articles_processed % 3 == 0 or idx == total_articles:
+            save_processed_articles(list(processed_urls))
+            
+        time.sleep(1)  # Rate limiting
+    
+    # Abschließendes Speichern des Caches
+    save_processed_articles(list(processed_urls))
+    print(f"✅ The Verge Scraping abgeschlossen. {articles_processed} AI-relevante Artikel gefunden.")
 
-    return summarized_articles if summarized_articles else None
+    return summarized_articles if summarized_articles else []
 
 if __name__ == "__main__":
     results = main_verge()
     if results:
         for r in results:
-            print("\n📰", r["Titel"])
-            print("Gefundene Keywords:", ", ".join(r["Keywords"]))
-            for s in r["Keyword_Sätze"]:
-                print(f"→ {s}")
-            print(r["Zusammenfassung"])
-            print("🔗", r["Link"])
+            # Array-Struktur: [title, link, summary, date]
+            print("\n📰", r[0])  # Titel
+            print(r[2])  # Zusammenfassung
+            print("🔗", r[1])  # Link
+            print("📅", r[3])  # Datum
             print("---")

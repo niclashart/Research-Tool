@@ -545,6 +545,115 @@ def get_data():
             'message': f'Error retrieving data: {str(e)}'
         }), 500
 
+@app.route('/get-data', methods=['POST'])
+def dashboard_data():
+    """API endpoint to get data for dashboard statistics"""
+    try:
+        # Load selected sources from request
+        data = request.get_json() or {}
+        sources = data.get('sources', ['arxiv', 'techcrunch', 'theverge', 'thehackernews', 'venturebeat', 'stanford'])
+        max_results = 5
+        
+        # Fetch live data from scrapers
+        all_data = {}
+        if 'arxiv' in sources:
+            try:
+                all_data['arxiv'] = arxiv_scraper.main_arxiv(categories=['cs.AI', 'cs.LG'], max_results=max_results)
+            except Exception as e:
+                logger.error(f"Error fetching ArXiv data: {e}")
+                all_data['arxiv'] = {}
+        if 'techcrunch' in sources:
+            try:
+                all_data['techcrunch'] = techcrunch.main_techcrunch()[:max_results]
+            except Exception as e:
+                logger.error(f"Error fetching TechCrunch data: {e}")
+                all_data['techcrunch'] = []
+        if 'venturebeat' in sources:
+            try:
+                all_data['venturebeat'] = venture_beat.main_venturebeat()[:max_results]
+            except Exception as e:
+                logger.error(f"Error fetching VentureBeat data: {e}")
+                all_data['venturebeat'] = []
+        if 'theverge' in sources:
+            try:
+                all_data['theverge'] = theverge.main_verge()[:max_results]
+            except Exception as e:
+                logger.error(f"Error fetching The Verge data: {e}")
+                all_data['theverge'] = []
+        if 'thehackernews' in sources:
+            try:
+                all_data['thehackernews'] = thn.main_thn()[:max_results]
+            except Exception as e:
+                logger.error(f"Error fetching THN data: {e}")
+                all_data['thehackernews'] = []
+        if 'stanford' in sources:
+            try:
+                all_data['stanford'] = stanford_ai.main_stanford()[:max_results]
+            except Exception as e:
+                logger.error(f"Error fetching Stanford AI data: {e}")
+                all_data['stanford'] = []
+        
+        # Build flattened recentArticles list
+        recent_articles = []
+        # ArXiv returns dict of title->info
+        if 'arxiv' in all_data:
+            for title, info in all_data['arxiv'].items():
+                recent_articles.append({
+                    'title': title,
+                    'summary': info.get('summary', ''),
+                    'source': 'arxiv',
+                    'url': info.get('link', '#'),
+                    'date': info.get('published', ''),
+                    'relevance': 0
+                })
+        # Other sources return list of [title, link, summary]
+        for src in ['techcrunch', 'venturebeat', 'theverge', 'thehackernews', 'stanford']:
+            for art in all_data.get(src, []):
+                title = art[0] if len(art) > 0 else ''
+                url = art[1] if len(art) > 1 else '#'
+                summary = art[2] if len(art) > 2 else ''
+                date = art[3] if len(art) > 3 else ''
+                recent_articles.append({
+                    'title': title,
+                    'summary': summary,
+                    'source': src,
+                    'url': url,
+                    'date': date,
+                    'relevance': 0
+                })
+        
+        # Sort and limit articles
+        recent_articles = sorted(recent_articles, key=lambda x: x['date'], reverse=True)[:20]
+        
+        # Extract keywords and sourceStats
+        keyword_counts = {}
+        source_counts = {}
+        for art in recent_articles:
+            src = art['source']
+            source_counts[src] = source_counts.get(src, 0) + 1
+            for word in (art['summary'] or art['title']).split():
+                w = word.strip(',.').lower()
+                if len(w) > 3:
+                    keyword_counts[w] = keyword_counts.get(w, 0) + 1
+        
+        # Prepare responses
+        top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        trending = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:7]
+        response = {
+            'recentArticles': recent_articles,
+            'topKeywords': [{'term': k, 'count': v} for k, v in top_keywords],
+            'trendingTopics': [{'term': k, 'count': v, 'trend': v} for k, v in trending],
+            'sourceStats': {'sources': source_counts, 'totalArticles': len(recent_articles)},
+            'last_updated': datetime.now().isoformat()
+        }
+        return jsonify(response)
+    except Exception as e:
+        logger.error(f"Error in dashboard data: {e}", exc_info=True)
+        return jsonify({
+            'recentArticles': [], 'topKeywords': [], 'trendingTopics': [],
+            'sourceStats': {'sources': {}, 'totalArticles': 0},
+            'last_updated': datetime.now().isoformat() }), 500
+
 # Custom template filters
 @app.template_filter('format_date')
 def format_date_filter(date_string):
@@ -559,7 +668,7 @@ def format_date_filter(date_string):
         return date_string
 
 @app.template_filter('now')
-def now_filter(format_string):
+def now_filter(value, format_string='%Y'):
     """Return current date/time in specified format"""
     return datetime.now().strftime(format_string)
 
@@ -571,6 +680,7 @@ def truncate_text_filter(text, length=100):
     if len(text) <= length:
         return text
     return text[:length] + '...'
+
 
 # Create .env file if it doesn't exist
 def init_env_file():

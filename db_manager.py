@@ -3,10 +3,12 @@ import json
 import os
 from datetime import datetime
 
-DB_PATH = "articles_database.db"
-
-def init_db():
+# Use a default path but allow overriding it through a parameter
+def init_db(db_path="research_data.db"):
     """Initialize the database with necessary tables"""
+    global DB_PATH
+    DB_PATH = db_path
+    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -37,6 +39,11 @@ def init_db():
     
     conn.commit()
     conn.close()
+    
+    return DB_PATH
+
+# Default database path (will be overridden when init_db is called)
+DB_PATH = "research_data.db"
 
 def save_article(source, article_data):
     """Save an article to the database"""

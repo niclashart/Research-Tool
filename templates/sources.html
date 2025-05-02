@@ -117,6 +117,17 @@
 {% endblock %}
 
 {% block content %}
+<!-- Globale Ladeanimation -->
+<div id="global-loader" class="loader-overlay hidden">
+    <div class="loading-spinner"></div>
+    <p class="loader-text mt-4">Daten werden geladen...</p>
+    <div class="mt-4 w-64">
+        <div class="progress-bar">
+            <div id="global-loader-progress" class="progress-bar-inner"></div>
+        </div>
+    </div>
+</div>
+
 <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-8">
         <i class="fas fa-newspaper text-blue-600 mr-2"></i> AI Research Sources
@@ -235,7 +246,7 @@
             <div class="bg-white rounded-lg shadow-md p-6">
                 <h2 class="text-xl font-semibold mb-6">Results</h2>
                 
-                <div id="results-container" class="mt-4">
+                <div id="results-container" class="mt-4"></div>
                     <div class="text-center text-gray-500 py-10">
                         <i class="fas fa-newspaper text-4xl mb-4 opacity-30"></i>
                         <p>Select sources and fetch data to see results here</p>
@@ -253,29 +264,354 @@
         // Update range slider value
         const maxArticlesSlider = document.getElementById('max-articles');
         const maxArticlesValue = document.getElementById('max-articles-value');
-        
+
         if (maxArticlesSlider && maxArticlesValue) {
             maxArticlesSlider.addEventListener('input', function() {
                 maxArticlesValue.textContent = this.value;
             });
         }
-        
-        // Alert user if no sources are selected
+
+        // Load saved state from localStorage
+        loadSavedState();
+
+        // Handle form submission
         const fetchDataForm = document.getElementById('fetch-data-form');
-        
+
         if (fetchDataForm) {
             fetchDataForm.addEventListener('submit', function(e) {
-                const selectedSources = document.querySelectorAll('input[name="sources"]:checked');
-                
+                e.preventDefault(); // Prevent default form submission
+
+                const selectedSources = Array.from(document.querySelectorAll('input[name="sources"]:checked')).map(input => input.value);
+                const arxivCategory = document.getElementById('arxiv-category').value;
+                const maxArticles = document.getElementById('max-articles').value;
+                const citationStyles = Array.from(document.querySelectorAll('input[name="citation-styles"]:checked')).map(input => input.value);
+
                 if (selectedSources.length === 0) {
-                    e.preventDefault();
                     alert('Please select at least one source.');
-                    return false;
+                    return;
                 }
+
+                // Save current state to localStorage
+                saveCurrentState(selectedSources, arxivCategory, maxArticles, citationStyles);
+                
+                // Zeige globale Ladeanimation
+                const loader = document.getElementById('global-loader');
+                const progress = document.getElementById('global-loader-progress');
+                loader.classList.remove('hidden');
+                
+                // Simuliere Fortschrittsanzeige
+                let progressValue = 0;
+                const progressInterval = setInterval(() => {
+                    progressValue += 5;
+                    if (progressValue > 90) {
+                        clearInterval(progressInterval);
+                    }
+                    progress.style.width = progressValue + '%';
+                }, 200);
+
+                // Update status container
+                const statusContainer = document.getElementById('status-container');
+                statusContainer.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-4">Status</h3>
+                    <div class="text-gray-600">
+                        <div class="flex items-center mb-2">
+                            <div class="mr-2">
+                                <span class="inline-block w-4 h-4 border-t-2 border-blue-500 border-r-2 border-b-2 border-l-2 rounded-full animate-spin"></span>
+                            </div>
+                            <p>Fetching data, please wait...</p>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            <p>Requesting data from ${selectedSources.length} source(s)...</p>
+                        </div>
+                    </div>
+                `;
+
+                // Send data to the backend
+                fetch('/api/fetch_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sources: selectedSources,
+                        arxiv_category: arxivCategory,
+                        max_articles: maxArticles,
+                        citation_styles: citationStyles
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        // Wenn der Server einen Fehler zurückgibt, werfen wir einen Fehler mit dem Statuscode
+                        return response.text().then(text => {
+                            throw new Error(`Server responded with status ${response.status}: ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Verstecke die globale Ladeanimation
+                    clearInterval(progressInterval);
+                    progress.style.width = '100%';
+                    setTimeout(() => {
+                        loader.classList.add('hidden');
+                        progress.style.width = '0%';
+                    }, 500);
+                    
+                    if (data.success) {
+                        // Save the fetched data to localStorage for persistence
+                        localStorage.setItem('sourcesData', JSON.stringify(data));
+                        
+                        // Instead of automatically fetching /refresh-dashboard, we'll update manually
+                        // Call a function to update the dashboard if we're on the sources page
+                        updateDashboardData();
+                        
+                        const resultsContainer = document.getElementById('results-container');
+                        resultsContainer.innerHTML = ''; // Clear previous results
+                        
+                        // Debug: Log the whole response
+                        console.log("API Response:", data);
+
+                        // Display fetched data
+                        for (const [source, results] of Object.entries(data.data)) {
+                            const sourceDiv = document.createElement('div');
+                            sourceDiv.classList.add('mb-6');
+
+                            const sourceTitle = document.createElement('h3');
+                            sourceTitle.classList.add('text-lg', 'font-semibold', 'mb-2');
+                            sourceTitle.textContent = `Source: ${source}`;
+                            sourceDiv.appendChild(sourceTitle);
+
+                            // Check if results is null or undefined
+                            if (!results) {
+                                const noResults = document.createElement('p');
+                                noResults.classList.add('text-gray-500');
+                                noResults.textContent = 'No results found for this source.';
+                                sourceDiv.appendChild(noResults);
+                                resultsContainer.appendChild(sourceDiv);
+                                continue;
+                            }
+
+                            // Check data structure
+                            console.log(`Data structure for ${source}:`, results);
+
+                            // ArXiv has a specific structure (dictionary/object)
+                            if (source === 'arxiv') {
+                                const entries = Object.entries(results);
+                                if (entries.length > 0) {
+                                    entries.forEach(([title, data]) => {
+                                        const resultDiv = document.createElement('div');
+                                        resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                                        const titleElem = document.createElement('h4');
+                                        titleElem.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                                        titleElem.textContent = title || 'No Title';
+                                        resultDiv.appendChild(titleElem);
+
+                                        const summary = document.createElement('p');
+                                        summary.classList.add('text-gray-700', 'mb-2');
+                                        summary.textContent = data.summary || 'No Summary';
+                                        resultDiv.appendChild(summary);
+
+                                        const authors = document.createElement('p');
+                                        authors.classList.add('text-sm', 'text-gray-600', 'mb-1');
+                                        authors.textContent = `Authors: ${data.authors || 'Unknown'}`;
+                                        resultDiv.appendChild(authors);
+
+                                        const date = document.createElement('p');
+                                        date.classList.add('text-sm', 'text-gray-600', 'mb-2');
+                                        date.textContent = `Published: ${data.published || 'Unknown date'}`;
+                                        resultDiv.appendChild(date);
+
+                                        const link = document.createElement('a');
+                                        link.classList.add('text-blue-500', 'hover:underline');
+                                        link.href = data.link || '#';
+                                        link.target = '_blank';
+                                        link.textContent = 'Read more';
+                                        resultDiv.appendChild(link);
+
+                                        if (data.citations && Object.keys(data.citations).length > 0) {
+                                            const citationsButton = document.createElement('button');
+                                            citationsButton.classList.add('text-sm', 'text-blue-600', 'hover:underline', 'mt-2', 'block');
+                                            citationsButton.textContent = 'Show Citations';
+                                            
+                                            const citationId = `citation-${source}-${title.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                                            citationsButton.onclick = () => toggleElement(citationId);
+                                            
+                                            const citationsDiv = document.createElement('div');
+                                            citationsDiv.id = citationId;
+                                            citationsDiv.classList.add('mt-2', 'p-3', 'bg-gray-50', 'text-sm', 'hidden');
+                                            
+                                            for (const [style, citation] of Object.entries(data.citations)) {
+                                                const citationElem = document.createElement('div');
+                                                citationElem.classList.add('mb-2');
+                                                
+                                                const styleElem = document.createElement('strong');
+                                                styleElem.textContent = style.toUpperCase() + ': ';
+                                                citationElem.appendChild(styleElem);
+                                                
+                                                const citationText = document.createTextNode(citation);
+                                                citationElem.appendChild(citationText);
+                                                
+                                                citationsDiv.appendChild(citationElem);
+                                            }
+                                            
+                                            resultDiv.appendChild(citationsButton);
+                                            resultDiv.appendChild(citationsDiv);
+                                        }
+
+                                        sourceDiv.appendChild(resultDiv);
+                                    });
+                                } else {
+                                    const noResults = document.createElement('p');
+                                    noResults.classList.add('text-gray-500');
+                                    noResults.textContent = 'No results found for this source.';
+                                    sourceDiv.appendChild(noResults);
+                                }
+                            } 
+                            // Stanford AI returns an array of [title, link, summary] tuples
+                            else if (source === 'stanford' && Array.isArray(results)) {
+                                if (results.length > 0) {
+                                    results.forEach(result => {
+                                        const resultDiv = document.createElement('div');
+                                        resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                                        // Stanford structure is [title, link, summary]
+                                        const title = document.createElement('h4');
+                                        title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                                        title.textContent = result[0] || 'No Title';
+                                        resultDiv.appendChild(title);
+
+                                        const summary = document.createElement('p');
+                                        summary.classList.add('text-gray-700', 'mb-2');
+                                        summary.textContent = result[2] || 'No Summary';
+                                        resultDiv.appendChild(summary);
+
+                                        const link = document.createElement('a');
+                                        link.classList.add('text-blue-500', 'hover:underline');
+                                        link.href = result[1] || '#';
+                                        link.target = '_blank';
+                                        link.textContent = 'Read more';
+                                        resultDiv.appendChild(link);
+
+                                        sourceDiv.appendChild(resultDiv);
+                                    });
+                                } else {
+                                    const noResults = document.createElement('p');
+                                    noResults.classList.add('text-gray-500');
+                                    noResults.textContent = 'No results found for this source.';
+                                    sourceDiv.appendChild(noResults);
+                                }
+                            }
+                            // TheVerge, TechCrunch, HackerNews, etc. with dictionaries
+                            else if (Array.isArray(results) && results.length > 0 && typeof results[0] === 'object') {
+                                results.forEach(result => {
+                                    const resultDiv = document.createElement('div');
+                                    resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                                    const title = document.createElement('h4');
+                                    title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                                    // Try different title field names
+                                    title.textContent = result.title || result.Titel || 'No Title';
+                                    resultDiv.appendChild(title);
+
+                                    const summary = document.createElement('p');
+                                    summary.classList.add('text-gray-700', 'mb-2');
+                                    // Try different summary field names
+                                    summary.textContent = result.summary || result.Zusammenfassung || result.content || 'No Summary';
+                                    resultDiv.appendChild(summary);
+
+                                    // Date info if available
+                                    if (result.pub_date || result.Datum) {
+                                        const date = document.createElement('p');
+                                        date.classList.add('text-sm', 'text-gray-600', 'mb-1');
+                                        date.textContent = `Published: ${result.pub_date || result.Datum}`;
+                                        resultDiv.appendChild(date);
+                                    }
+
+                                    const link = document.createElement('a');
+                                    link.classList.add('text-blue-500', 'hover:underline');
+                                    link.href = result.url || result.Link || result.link || '#';
+                                    link.target = '_blank';
+                                    link.textContent = 'Read more';
+                                    resultDiv.appendChild(link);
+
+                                    sourceDiv.appendChild(resultDiv);
+                                });
+                            }
+                            // News sources with simple arrays [title, url, content] format
+                            else if (Array.isArray(results) && results.length > 0) {
+                                results.forEach(result => {
+                                    const resultDiv = document.createElement('div');
+                                    resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                                    const title = document.createElement('h4');
+                                    title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                                    // Title at index 0
+                                    title.textContent = (Array.isArray(result) && result[0]) ? result[0] : 'No Title';
+                                    resultDiv.appendChild(title);
+
+                                    const summary = document.createElement('p');
+                                    summary.classList.add('text-gray-700', 'mb-2');
+                                    // Content usually at index 2
+                                    summary.textContent = (Array.isArray(result) && result[2]) ? result[2] : 'No Summary';
+                                    resultDiv.appendChild(summary);
+
+                                    const link = document.createElement('a');
+                                    link.classList.add('text-blue-500', 'hover:underline');
+                                    // URL usually at index 1
+                                    link.href = (Array.isArray(result) && result[1]) ? result[1] : '#';
+                                    link.target = '_blank';
+                                    link.textContent = 'Read more';
+                                    resultDiv.appendChild(link);
+
+                                    sourceDiv.appendChild(resultDiv);
+                                });
+                            } else {
+                                const noResults = document.createElement('p');
+                                noResults.classList.add('text-gray-500');
+                                noResults.textContent = 'No results found for this source or unsupported format.';
+                                sourceDiv.appendChild(noResults);
+                            }
+
+                            resultsContainer.appendChild(sourceDiv);
+                        }
+                        
+                        // Update status
+                        const statusContainer = document.getElementById('status-container');
+                        if (statusContainer) {
+                            statusContainer.innerHTML = `
+                                <h3 class="text-lg font-semibold mb-4">Status</h3>
+                                <div class="text-gray-600">
+                                    <p class="text-green-600"><i class="fas fa-check-circle mr-2"></i>Data fetched successfully</p>
+                                    <p class="mt-2">Found data from ${Object.keys(data.data).length} source(s)</p>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        alert('Error fetching data: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Fetch error details:", error);
+                    
+                    // Update status container with error information
+                    const statusContainer = document.getElementById('status-container');
+                    if (statusContainer) {
+                        statusContainer.innerHTML = `
+                            <h3 class="text-lg font-semibold mb-4">Status</h3>
+                            <div class="text-red-600">
+                                <p><i class="fas fa-exclamation-triangle mr-2"></i>Error fetching data</p>
+                                <p class="mt-2 text-sm">${error.message}</p>
+                            </div>
+                        `;
+                    }
+                    
+                    alert('Error fetching data: ' + error.message);
+                });
             });
         }
     });
-    
+
     // Define global function for toggle citations
     function toggleElement(elementId) {
         const element = document.getElementById(elementId);
@@ -286,6 +622,373 @@
             if (!element.classList.contains('hidden')) {
                 element.classList.add('slide-in');
             }
+        }
+    }
+
+    // Function to update dashboard data manually
+    function updateDashboardData() {
+        // Get selected sources from form
+        const selectedSources = Array.from(document.querySelectorAll('input[name="sources"]:checked')).map(input => input.value);
+        
+        if (selectedSources.length === 0) {
+            console.warn('No sources selected for dashboard update');
+            return;
+        }
+        
+        console.log("Updating dashboard data with sources:", selectedSources);
+        
+        // Send a request to the backend to refresh dashboard data with selected sources
+        fetch('/refresh-dashboard', { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sources: selectedSources
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server responded with status ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Dashboard data refreshed successfully:", data);
+            
+            // Auch die Daten im localStorage für die Dashboard-Seite aktualisieren
+            const cacheKey = `dashboardData_${selectedSources.sort().join('-')}`;
+            localStorage.setItem(cacheKey, JSON.stringify(data.data));
+            localStorage.setItem('lastUsedCacheKey', cacheKey);
+            
+            // Bestätigungsmeldung anzeigen
+            const statusContainer = document.getElementById('status-container');
+            if (statusContainer) {
+                const currentHTML = statusContainer.innerHTML;
+                statusContainer.innerHTML = currentHTML + `
+                    <div class="mt-2 text-green-600 text-sm">
+                        <i class="fas fa-check-circle mr-1"></i> Dashboard data updated!
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            console.error('Could not refresh dashboard data:', err);
+        });
+    }
+
+    // Function to save current state to localStorage
+    function saveCurrentState(selectedSources, arxivCategory, maxArticles, citationStyles) {
+        const state = {
+            selectedSources: selectedSources,
+            arxivCategory: arxivCategory,
+            maxArticles: maxArticles,
+            citationStyles: citationStyles,
+            timestamp: new Date().getTime()
+        };
+        localStorage.setItem('sourcesFormState', JSON.stringify(state));
+    }
+
+    // Function to load saved state from localStorage
+    function loadSavedState() {
+        try {
+            // Try loading form state
+            const savedStateJson = localStorage.getItem('sourcesFormState');
+            if (savedStateJson) {
+                const savedState = JSON.parse(savedStateJson);
+                
+                // Check if state is less than 1 hour old
+                const now = new Date().getTime();
+                const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+                if (now - savedState.timestamp <= oneHour) {
+                    // Restore selected sources
+                    document.querySelectorAll('input[name="sources"]').forEach(checkbox => {
+                        checkbox.checked = savedState.selectedSources.includes(checkbox.value);
+                    });
+                    
+                    // Restore ArXiv category
+                    if (savedState.arxivCategory) {
+                        const categorySelect = document.getElementById('arxiv-category');
+                        if (categorySelect) categorySelect.value = savedState.arxivCategory;
+                    }
+                    
+                    // Restore max articles
+                    if (savedState.maxArticles) {
+                        const maxArticlesInput = document.getElementById('max-articles');
+                        const maxArticlesValue = document.getElementById('max-articles-value');
+                        if (maxArticlesInput) {
+                            maxArticlesInput.value = savedState.maxArticles;
+                            if (maxArticlesValue) maxArticlesValue.textContent = savedState.maxArticles;
+                        }
+                    }
+                    
+                    // Restore citation styles
+                    if (savedState.citationStyles) {
+                        document.querySelectorAll('input[name="citation-styles"]').forEach(checkbox => {
+                            checkbox.checked = savedState.citationStyles.includes(checkbox.value);
+                        });
+                    }
+                }
+            }
+            
+            // Try loading previous results
+            const savedDataJson = localStorage.getItem('sourcesData');
+            if (savedDataJson) {
+                const savedData = JSON.parse(savedDataJson);
+                if (savedData.success && savedData.data) {
+                    displayFetchedData(savedData);
+                    
+                    // Update status container
+                    const statusContainer = document.getElementById('status-container');
+                    if (statusContainer) {
+                        statusContainer.innerHTML = `
+                            <h3 class="text-lg font-semibold mb-4">Status</h3>
+                            <div class="text-gray-600">
+                                <p class="text-green-600"><i class="fas fa-check-circle mr-2"></i>Showing saved results</p>
+                                <p class="mt-1 text-sm">Last updated: ${new Date().toLocaleString()}</p>
+                                <button id="refresh-button" class="mt-3 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-md text-sm flex items-center">
+                                    <i class="fas fa-sync-alt mr-2"></i> Refresh
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add event listener for refresh button
+                        const refreshButton = document.getElementById('refresh-button');
+                        if (refreshButton) {
+                            refreshButton.addEventListener('click', function() {
+                                document.getElementById('fetch-data-form').dispatchEvent(new Event('submit'));
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error loading saved state:", error);
+        }
+    }
+
+    // Function to display fetched data
+    function displayFetchedData(data) {
+        const resultsContainer = document.getElementById('results-container');
+        if (!resultsContainer) return;
+        
+        resultsContainer.innerHTML = ''; // Clear previous results
+        
+        // Display fetched data
+        for (const [source, results] of Object.entries(data.data)) {
+            const sourceDiv = document.createElement('div');
+            sourceDiv.classList.add('mb-6');
+
+            const sourceTitle = document.createElement('h3');
+            sourceTitle.classList.add('text-lg', 'font-semibold', 'mb-2');
+            sourceTitle.textContent = `Source: ${source}`;
+            sourceDiv.appendChild(sourceTitle);
+
+            // Check if results is null or undefined
+            if (!results) {
+                const noResults = document.createElement('p');
+                noResults.classList.add('text-gray-500');
+                noResults.textContent = 'No results found for this source.';
+                sourceDiv.appendChild(noResults);
+                resultsContainer.appendChild(sourceDiv);
+                continue;
+            }
+
+            // Check data structure
+            console.log(`Data structure for ${source}:`, results);
+
+            // ArXiv has a specific structure (dictionary/object)
+            if (source === 'arxiv') {
+                const entries = Object.entries(results);
+                if (entries.length > 0) {
+                    entries.forEach(([title, data]) => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                        const titleElem = document.createElement('h4');
+                        titleElem.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                        titleElem.textContent = title || 'No Title';
+                        resultDiv.appendChild(titleElem);
+
+                        const summary = document.createElement('p');
+                        summary.classList.add('text-gray-700', 'mb-2');
+                        summary.textContent = data.summary || 'No Summary';
+                        resultDiv.appendChild(summary);
+
+                        const authors = document.createElement('p');
+                        authors.classList.add('text-sm', 'text-gray-600', 'mb-1');
+                        authors.textContent = `Authors: ${data.authors || 'Unknown'}`;
+                        resultDiv.appendChild(authors);
+
+                        const date = document.createElement('p');
+                        date.classList.add('text-sm', 'text-gray-600', 'mb-2');
+                        date.textContent = `Published: ${data.published || 'Unknown date'}`;
+                        resultDiv.appendChild(date);
+
+                        const link = document.createElement('a');
+                        link.classList.add('text-blue-500', 'hover:underline');
+                        link.href = data.link || '#';
+                        link.target = '_blank';
+                        link.textContent = 'Read more';
+                        resultDiv.appendChild(link);
+
+                        if (data.citations && Object.keys(data.citations).length > 0) {
+                            const citationsButton = document.createElement('button');
+                            citationsButton.classList.add('text-sm', 'text-blue-600', 'hover:underline', 'mt-2', 'block');
+                            citationsButton.textContent = 'Show Citations';
+                            
+                            const citationId = `citation-${source}-${title.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                            citationsButton.onclick = () => toggleElement(citationId);
+                            
+                            const citationsDiv = document.createElement('div');
+                            citationsDiv.id = citationId;
+                            citationsDiv.classList.add('mt-2', 'p-3', 'bg-gray-50', 'text-sm', 'hidden');
+                            
+                            for (const [style, citation] of Object.entries(data.citations)) {
+                                const citationElem = document.createElement('div');
+                                citationElem.classList.add('mb-2');
+                                
+                                const styleElem = document.createElement('strong');
+                                styleElem.textContent = style.toUpperCase() + ': ';
+                                citationElem.appendChild(styleElem);
+                                
+                                const citationText = document.createTextNode(citation);
+                                citationElem.appendChild(citationText);
+                                
+                                citationsDiv.appendChild(citationElem);
+                            }
+                            
+                            resultDiv.appendChild(citationsButton);
+                            resultDiv.appendChild(citationsDiv);
+                        }
+
+                        sourceDiv.appendChild(resultDiv);
+                    });
+                } else {
+                    const noResults = document.createElement('p');
+                    noResults.classList.add('text-gray-500');
+                    noResults.textContent = 'No results found for this source.';
+                    sourceDiv.appendChild(noResults);
+                }
+            } 
+            // Stanford AI returns an array of [title, link, summary] tuples
+            else if (source === 'stanford' && Array.isArray(results)) {
+                if (results.length > 0) {
+                    results.forEach(result => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                        // Stanford structure is [title, link, summary]
+                        const title = document.createElement('h4');
+                        title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                        title.textContent = result[0] || 'No Title';
+                        resultDiv.appendChild(title);
+
+                        const summary = document.createElement('p');
+                        summary.classList.add('text-gray-700', 'mb-2');
+                        summary.textContent = result[2] || 'No Summary';
+                        resultDiv.appendChild(summary);
+
+                        const link = document.createElement('a');
+                        link.classList.add('text-blue-500', 'hover:underline');
+                        link.href = result[1] || '#';
+                        link.target = '_blank';
+                        link.textContent = 'Read more';
+                        resultDiv.appendChild(link);
+
+                        sourceDiv.appendChild(resultDiv);
+                    });
+                } else {
+                    const noResults = document.createElement('p');
+                    noResults.classList.add('text-gray-500');
+                    noResults.textContent = 'No results found for this source.';
+                    sourceDiv.appendChild(noResults);
+                }
+            }
+            // TheVerge, TechCrunch, HackerNews, etc. with dictionaries
+            else if (Array.isArray(results) && results.length > 0 && typeof results[0] === 'object') {
+                results.forEach(result => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                    const title = document.createElement('h4');
+                    title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                    // Try different title field names
+                    title.textContent = result.title || result.Titel || 'No Title';
+                    resultDiv.appendChild(title);
+
+                    const summary = document.createElement('p');
+                    summary.classList.add('text-gray-700', 'mb-2');
+                    // Try different summary field names
+                    summary.textContent = result.summary || result.Zusammenfassung || result.content || 'No Summary';
+                    resultDiv.appendChild(summary);
+
+                    // Date info if available
+                    if (result.pub_date || result.Datum) {
+                        const date = document.createElement('p');
+                        date.classList.add('text-sm', 'text-gray-600', 'mb-1');
+                        date.textContent = `Published: ${result.pub_date || result.Datum}`;
+                        resultDiv.appendChild(date);
+                    }
+
+                    const link = document.createElement('a');
+                    link.classList.add('text-blue-500', 'hover:underline');
+                    link.href = result.url || result.Link || result.link || '#';
+                    link.target = '_blank';
+                    link.textContent = 'Read more';
+                    resultDiv.appendChild(link);
+
+                    sourceDiv.appendChild(resultDiv);
+                });
+            }
+            // News sources with simple arrays [title, url, content] format
+            else if (Array.isArray(results) && results.length > 0) {
+                results.forEach(result => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'mb-4');
+
+                    const title = document.createElement('h4');
+                    title.classList.add('font-bold', 'text-blue-600', 'mb-2');
+                    // Title at index 0
+                    title.textContent = (Array.isArray(result) && result[0]) ? result[0] : 'No Title';
+                    resultDiv.appendChild(title);
+
+                    const summary = document.createElement('p');
+                    summary.classList.add('text-gray-700', 'mb-2');
+                    // Content usually at index 2
+                    summary.textContent = (Array.isArray(result) && result[2]) ? result[2] : 'No Summary';
+                    resultDiv.appendChild(summary);
+
+                    const link = document.createElement('a');
+                    link.classList.add('text-blue-500', 'hover:underline');
+                    // URL usually at index 1
+                    link.href = (Array.isArray(result) && result[1]) ? result[1] : '#';
+                    link.target = '_blank';
+                    link.textContent = 'Read more';
+                    resultDiv.appendChild(link);
+
+                    sourceDiv.appendChild(resultDiv);
+                });
+            } else {
+                const noResults = document.createElement('p');
+                noResults.classList.add('text-gray-500');
+                noResults.textContent = 'No results found for this source or unsupported format.';
+                sourceDiv.appendChild(noResults);
+            }
+
+            resultsContainer.appendChild(sourceDiv);
+        }
+        
+        // Update status
+        const statusContainer = document.getElementById('status-container');
+        if (statusContainer) {
+            statusContainer.innerHTML = `
+                <h3 class="text-lg font-semibold mb-4">Status</h3>
+                <div class="text-gray-600">
+                    <p class="text-green-600"><i class="fas fa-check-circle mr-2"></i>Data fetched successfully</p>
+                    <p class="mt-2">Found data from ${Object.keys(data.data).length} source(s)</p>
+                </div>
+            `;
         }
     }
 </script>

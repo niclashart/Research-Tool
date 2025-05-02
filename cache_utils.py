@@ -52,3 +52,30 @@ def cached(expiry=DEFAULT_EXPIRY):
             return result
         return wrapper
     return decorator
+
+def get_cached_data(key):
+    """Retrieve data from cache by key"""
+    setup_cache()
+    cache_file = os.path.join(CACHE_DIR, f"{key}.pkl")
+    
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            logging.warning(f"Cache read error: {e}")
+    
+    return None
+
+def save_to_cache(key, data, expiry=DEFAULT_EXPIRY):
+    """Save data to cache with specified key"""
+    setup_cache()
+    cache_file = os.path.join(CACHE_DIR, f"{key}.pkl")
+    
+    try:
+        with open(cache_file, 'wb') as f:
+            pickle.dump(data, f)
+        return True
+    except Exception as e:
+        logging.warning(f"Cache write error: {e}")
+        return False

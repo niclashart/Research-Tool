@@ -39,6 +39,13 @@ def now_filter(format="%Y-%m-%d %H:%M:%S", *args, **kwargs):
     """Flask template filter to get current time"""
     return now(format)
 
+# Make now function available to all templates
+@app.context_processor
+def utility_processor():
+    return {
+        'now': now
+    }
+
 @app.route('/')
 def index():
     """Home page route"""

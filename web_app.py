@@ -545,6 +545,101 @@ def get_data():
             'message': f'Error retrieving data: {str(e)}'
         }), 500
 
+@app.route('/api/fetch_data', methods=['POST'])
+def fetch_data():
+    """API endpoint to fetch data based on selected sources and settings"""
+    try:
+        # Parse the incoming JSON data
+        data = request.get_json()
+        sources = data.get('sources', [])
+        arxiv_category = data.get('arxiv_category', 'cs.LG')
+        max_articles = int(data.get('max_articles', 10))
+        citation_styles = data.get('citation_styles', [])
+
+        if not sources:
+            return jsonify({
+                'success': False,
+                'message': 'No sources selected.'
+            }), 400
+
+        # Placeholder for fetched data
+        fetched_data = {}
+
+        # Fetch data from each selected source
+        if 'arxiv' in sources:
+            try:
+                fetched_data['arxiv'] = arxiv_scraper.main_arxiv(categories=[arxiv_category], max_results=max_articles, citation_styles=citation_styles)
+                logger.info(f"ArXiv data structure: {type(fetched_data['arxiv'])}")
+            except Exception as e:
+                logger.error(f"Error fetching ArXiv data: {str(e)}")
+                fetched_data['arxiv'] = {}
+
+        if 'techcrunch' in sources:
+            try:
+                tech_results = techcrunch.main_techcrunch()
+                if tech_results:
+                    fetched_data['techcrunch'] = tech_results[:max_articles]
+                logger.info(f"TechCrunch data structure: {type(fetched_data['techcrunch'])}")
+            except Exception as e:
+                logger.error(f"Error fetching TechCrunch data: {str(e)}")
+                fetched_data['techcrunch'] = []
+
+        if 'venturebeat' in sources:
+            try:
+                vb_results = venture_beat.main_venturebeat()
+                if vb_results:
+                    fetched_data['venturebeat'] = vb_results[:max_articles]
+                logger.info(f"VentureBeat data structure: {type(fetched_data['venturebeat'])}")
+            except Exception as e:
+                logger.error(f"Error fetching VentureBeat data: {str(e)}")
+                fetched_data['venturebeat'] = []
+
+        if 'stanford' in sources:
+            try:
+                stanford_results = stanford_ai.main_stanford()
+                if stanford_results:
+                    fetched_data['stanford'] = stanford_results[:max_articles]
+                logger.info(f"Stanford data structure: {type(fetched_data['stanford'])}")
+            except Exception as e:
+                logger.error(f"Error fetching Stanford AI data: {str(e)}")
+                fetched_data['stanford'] = []
+
+        if 'theverge' in sources:
+            try:
+                verge_results = theverge.main_verge()
+                if verge_results:
+                    fetched_data['theverge'] = verge_results[:max_articles]
+                logger.info(f"TheVerge data structure: {type(fetched_data['theverge'])}")
+            except Exception as e:
+                logger.error(f"Error fetching The Verge data: {str(e)}")
+                fetched_data['theverge'] = []
+
+        if 'thehackernews' in sources:
+            try:
+                thn_results = thn.main_thn()
+                if thn_results:
+                    fetched_data['thehackernews'] = thn_results[:max_articles]
+                logger.info(f"THN data structure: {type(fetched_data['thehackernews'])}")
+            except Exception as e:
+                logger.error(f"Error fetching THN data: {str(e)}")
+                fetched_data['thehackernews'] = []
+
+        # Log the fetched data for debugging
+        logger.info(f"Fetched data: {json.dumps(fetched_data, indent=2)}")
+
+        # Return the fetched data
+        return jsonify({
+            'success': True,
+            'data': fetched_data
+        })
+
+    except Exception as e:
+        logger.error(f"Error in fetch_data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"An error occurred: {str(e)}"
+        }), 500
+
 @app.route('/get-data', methods=['POST'])
 def dashboard_data():
     """API endpoint to get data for dashboard statistics"""

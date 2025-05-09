@@ -149,9 +149,28 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Load the debugging helpers -->
+<script src="{{ url_for('static', filename='js/dashboard-debug.js') }}"></script>
 <script>
     // Additional scripts for dashboard visualizations
     document.addEventListener('DOMContentLoaded', function() {
+        // Debug localStorage for source selection issues
+        console.log("Dashboard loading. Checking localStorage for sources...");
+        const sourcesFormState = localStorage.getItem('sourcesFormState');
+        console.log("sourcesFormState from localStorage:", sourcesFormState);
+        
+        if (sourcesFormState) {
+            try {
+                const parsedState = JSON.parse(sourcesFormState);
+                console.log("Parsed sourcesFormState:", parsedState);
+                console.log("Selected Sources:", parsedState.selectedSources);
+            } catch (error) {
+                console.error("Error parsing sourcesFormState:", error);
+            }
+        } else {
+            console.warn("No sourcesFormState found in localStorage");
+        }
+        
         // Tab switching for recent articles
         const filterAll = document.getElementById('filter-all');
         const filterArxiv = document.getElementById('filter-arxiv');
@@ -204,8 +223,7 @@
                 loadArticles('news');
             });
         }
-        
-        // Function to load dashboard data
+          // Function to load dashboard data
         function loadDashboardData() {
             // Update loading state for all components
             document.getElementById('source-stats').innerHTML = `
@@ -224,14 +242,29 @@
             let selectedSources = [];
             try {
                 const formState = localStorage.getItem('sourcesFormState');
+                console.log("Initial loading. sourcesFormState:", formState);
+                
                 if (formState) {
                     const parsedState = JSON.parse(formState);
+                    console.log("Parsed state:", parsedState);
+                    
                     if (parsedState.selectedSources && Array.isArray(parsedState.selectedSources)) {
                         selectedSources = parsedState.selectedSources;
+                        console.log("Found selected sources:", selectedSources);
+                    } else {
+                        console.warn("No selectedSources array in parsed state");
                     }
+                } else {
+                    console.warn("No sourcesFormState found in localStorage");
+                    // If no sources are selected, default to some basic sources
+                    selectedSources = ['arxiv', 'techcrunch', 'theverge'];
+                    console.log("Using default sources instead:", selectedSources);
                 }
             } catch (error) {
                 console.error('Error reading sources from localStorage:', error);
+                // If there's an error, use default sources
+                selectedSources = ['arxiv', 'techcrunch', 'theverge'];
+                console.log("Using default sources due to error:", selectedSources);
             }
             
             if (selectedSources.length === 0) {
@@ -284,21 +317,35 @@
             // Wenn keine gespeicherten Daten vorhanden oder zu alt sind, hole frische Daten
             fetchFreshDashboardData();
         }
-        
-        // Funktion zum Abrufen frischer Dashboard-Daten vom Server
+          // Funktion zum Abrufen frischer Dashboard-Daten vom Server
         function fetchFreshDashboardData() {
-            // Hole die gespeicherten Quellen aus localStorage
+            // Hole die gespeicherten Quellen aus localStorage mit besserer Debug-Ausgabe
             let selectedSources = [];
             try {
                 const formState = localStorage.getItem('sourcesFormState');
+                console.log("Fetching fresh data. sourcesFormState:", formState);
+                
                 if (formState) {
                     const parsedState = JSON.parse(formState);
+                    console.log("Parsed state:", parsedState);
+                    
                     if (parsedState.selectedSources && Array.isArray(parsedState.selectedSources)) {
                         selectedSources = parsedState.selectedSources;
+                        console.log("Found selected sources:", selectedSources);
+                    } else {
+                        console.warn("No selectedSources array in parsed state");
                     }
+                } else {
+                    console.warn("No sourcesFormState found in localStorage");
+                    // If no sources are selected, default to some basic sources
+                    selectedSources = ['arxiv', 'techcrunch', 'theverge'];
+                    console.log("Using default sources instead:", selectedSources);
                 }
             } catch (error) {
                 console.error('Error reading sources from localStorage:', error);
+                // If there's an error, use default sources
+                selectedSources = ['arxiv', 'techcrunch', 'theverge'];
+                console.log("Using default sources due to error:", selectedSources);
             }
             
             // Wenn keine Quellen ausgewählt sind, zeige eine Meldung an

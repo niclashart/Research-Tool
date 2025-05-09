@@ -271,6 +271,21 @@
             });
         }
 
+        // Add event listeners to all source checkboxes to auto-save on change
+        document.querySelectorAll('input[name="sources"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                // Get current values
+                const selectedSources = Array.from(document.querySelectorAll('input[name="sources"]:checked')).map(input => input.value);
+                const arxivCategory = document.getElementById('arxiv-category')?.value || 'cs.LG';
+                const maxArticles = document.getElementById('max-articles')?.value || 10;
+                const citationStyles = Array.from(document.querySelectorAll('input[name="citation-styles"]:checked')).map(input => input.value);
+                
+                // Save state whenever a checkbox changes
+                saveCurrentState(selectedSources, arxivCategory, maxArticles, citationStyles);
+                console.log('Source selection saved to localStorage:', selectedSources);
+            });
+        });
+
         // Load saved state from localStorage
         loadSavedState();
 
